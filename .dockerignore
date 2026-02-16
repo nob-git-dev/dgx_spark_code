@@ -1,0 +1,25 @@
+# モデルキャッシュ（数GB）をビルドコンテキストから除外
+models/
+
+# データファイル
+data/
+
+# Git
+.git/
+.gitignore
+
+# Python キャッシュ
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# 環境変数（セキュリティ）
+.env
+
+# ドキュメント
+*.md
+LICENSE

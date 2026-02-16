@@ -1,0 +1,59 @@
+# =============================================================================
+# Whisper Transcriber — Docker Compose
+#
+# 起動:    docker compose up -d
+# 停止:    docker compose down
+# ビルド:  docker compose build
+# ログ:    docker compose logs -f whisper
+# =============================================================================
+
+services:
+  whisper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whisper-transcriber
+    runtime: nvidia
+
+    environment:
+      # --- モデル設定 (.env から読み込み) ---
+      - WHISPER_MODEL=${WHISPER_MODEL:-large-v3-turbo}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cuda}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-float16}
+      - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-ja}
+      # --- GPU設定 ---
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      # --- Hugging Face モデルキャッシュ ---
+      - HF_HOME=/app/models/huggingface
+
+    volumes:
+      # モデルキャッシュ: ホスト側に永続化（コンテナ再起動でも再ダウンロード不要）
+      - ./models:/app/models
+      # 入出力データ: ホストから直接アクセス可能
+      - ./data:/app/data
+
+    ports:
+      # 8080: REST API (FastAPI)
+      # 7860: Web UI (Gradio)
+      - "8080:8080"
+      - "7860:7860"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # 共有メモリサイズ（PyTorch の DataLoader 等が使用）
+    shm_size: '4gb'
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Whisper Transcriber — ホスト側 CLI ラッパー
+#
+# Docker コンテナ内の文字起こしエンジンを呼び出すラッパースクリプト。
+# ホスト OS に Python や FFmpeg をインストールする必要はありません。
+#
+# 使い方:
+#   ./transcribe <入力ファイル> [オプション]
+#
+# 例:
+#   ./transcribe ~/Downloads/meeting.mp4
+#   ./transcribe recording.wav --format txt --language en
+#   ./transcribe interview.m4a --model large-v3 --stdout
+#
+# オプション:
+#   -l, --language    言語 (ja/en/auto)        [デフォルト: ja]
+#   -m, --model       モデル名                   [デフォルト: large-v3-turbo]
+#   -f, --format      出力形式 (srt/vtt/txt/json/tsv) [デフォルト: srt]
+#   -o, --output      出力ファイルパス
+#   --stdout          結果を標準出力に出力
+# =============================================================================
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+COMPOSE_FILE="${PROJECT_DIR}/compose.yaml"
+CONTAINER_NAME="whisper-transcriber"
+CONTAINER_INPUT_DIR="/tmp/transcribe-input"
+
+# --- ヘルプ表示 ---
+if [[ $# -eq 0 ]] || [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+    echo "使い方: ./transcribe <入力ファイル> [オプション]"
+    echo ""
+    echo "例:"
+    echo "  ./transcribe ~/Downloads/meeting.mp4"
+    echo "  ./transcribe recording.wav -f txt -l en"
+    echo "  ./transcribe interview.m4a --model large-v3 --stdout"
+    echo ""
+    echo "オプションの詳細は --help をコンテナ内 CLI に渡します。"
+    exit 0
+fi
+
+# --- 入力ファイルの検証 ---
+INPUT_FILE="$1"
+shift
+
+if [[ ! -f "$INPUT_FILE" ]]; then
+    echo "エラー: ファイルが見つかりません: $INPUT_FILE" >&2
+    exit 1
+fi
+
+INPUT_ABS="$(realpath "$INPUT_FILE")"
+INPUT_NAME="$(basename "$INPUT_ABS")"
+
+# --- 出力ディレクトリの準備 ---
+HOST_OUTPUT_DIR="${PROJECT_DIR}/data/output"
+mkdir -p "$HOST_OUTPUT_DIR"
+
+# --- コンテナが起動中か確認 ---
+if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    # コンテナ起動中 → docker exec を使用（モデルがロード済みで高速）
+    echo "起動中のコンテナを利用します..." >&2
+
+    # ファイルをコンテナにコピー
+    docker exec "$CONTAINER_NAME" mkdir -p "$CONTAINER_INPUT_DIR"
+    docker cp "$INPUT_ABS" "${CONTAINER_NAME}:${CONTAINER_INPUT_DIR}/${INPUT_NAME}"
+
+    # 文字起こし実行
+    docker exec "$CONTAINER_NAME" \
+        python -m app.cli.transcribe_cli \
+        "${CONTAINER_INPUT_DIR}/${INPUT_NAME}" \
+        --output-dir /app/data/output \
+        "$@"
+
+    # コンテナ内の一時入力ファイルを削除
+    docker exec "$CONTAINER_NAME" rm -f "${CONTAINER_INPUT_DIR}/${INPUT_NAME}"
+else
+    # コンテナ停止中 → docker compose run で一時起動
+    echo "コンテナを一時起動します（初回はモデルダウンロードに時間がかかります）..." >&2
+
+    docker compose -f "$COMPOSE_FILE" run --rm \
+        -v "$(dirname "$INPUT_ABS"):/tmp/host-input:ro" \
+        whisper \
+        python -m app.cli.transcribe_cli \
+        "/tmp/host-input/${INPUT_NAME}" \
+        --output-dir /app/data/output \
+        "$@"
+fi
+
+echo "" >&2
+echo "出力ディレクトリ: ${HOST_OUTPUT_DIR}" >&2
