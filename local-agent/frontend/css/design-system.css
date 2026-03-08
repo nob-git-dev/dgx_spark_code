@@ -1,0 +1,155 @@
+/* ============================================================
+   Local Agent — Design System
+   Apple HIG color tokens (reused from launcher)
+   ============================================================ */
+
+:root {
+  /* Primary Colors */
+  --color-blue:   #007AFF;
+  --color-green:  #34C759;
+  --color-orange: #FF9500;
+  --color-red:    #FF3B30;
+  --color-purple: #AF52DE;
+  --color-gray:   #8E8E93;
+  --color-yellow: #FFD60A;
+
+  /* Backgrounds */
+  --bg-primary:   #F2F2F7;
+  --bg-secondary: #FFFFFF;
+  --bg-sidebar:   rgba(255, 255, 255, 0.82);
+  --bg-card:      #FFFFFF;
+  --bg-badge:     rgba(0, 122, 255, 0.10);
+  --bg-overlay:   rgba(0, 0, 0, 0.4);
+  --bg-user-msg:  #007AFF;
+  --bg-agent-msg: #FFFFFF;
+  --bg-tool-step: #F5F5F7;
+
+  /* Text */
+  --text-primary:   #1C1C1E;
+  --text-secondary: #3C3C43;
+  --text-tertiary:  #8E8E93;
+  --text-on-color:  #FFFFFF;
+
+  /* Borders */
+  --border-color:  rgba(60, 60, 67, 0.12);
+  --border-radius-card:   16px;
+  --border-radius-badge:  8px;
+  --border-radius-button: 10px;
+  --border-radius-msg:    18px;
+
+  /* Shadows */
+  --shadow-card:    0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-sidebar: 2px 0 12px rgba(0, 0, 0, 0.06);
+
+  /* Typography */
+  --font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:   "SF Mono", "Fira Code", "Consolas", monospace;
+
+  /* Spacing */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+
+  /* Sidebar */
+  --sidebar-width: 260px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-med:  250ms ease;
+}
+
+/* ---- Dark Mode ---- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary:   #1C1C1E;
+    --bg-secondary: #2C2C2E;
+    --bg-sidebar:   rgba(28, 28, 30, 0.92);
+    --bg-card:      #2C2C2E;
+    --bg-badge:     rgba(10, 132, 255, 0.18);
+    --bg-overlay:   rgba(0, 0, 0, 0.6);
+    --bg-user-msg:  #0A84FF;
+    --bg-agent-msg: #2C2C2E;
+    --bg-tool-step: #3A3A3C;
+
+    --text-primary:   #FFFFFF;
+    --text-secondary: #EBEBF5;
+    --text-tertiary:  #8E8E93;
+
+    --border-color:  rgba(255, 255, 255, 0.10);
+
+    --color-blue:   #0A84FF;
+    --color-green:  #30D158;
+    --color-orange: #FF9F0A;
+    --color-red:    #FF453A;
+    --color-purple: #BF5AF2;
+
+    --shadow-card:    0 2px 12px rgba(0, 0, 0, 0.3);
+    --shadow-sidebar: 2px 0 12px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ---- Reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-family);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--border-radius-button);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  transition: all var(--transition-fast);
+}
+
+.btn-primary {
+  background: var(--color-blue);
+  color: var(--text-on-color);
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { background: var(--bg-badge); }
+
+.btn-sm {
+  font-size: 13px;
+  padding: 5px 12px;
+}
+
+/* ---- Animations ---- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.pulse { animation: pulse 1.5s ease-in-out infinite; }

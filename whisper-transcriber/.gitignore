@@ -1,0 +1,8 @@
+# Model cache
+models/
+
+# Data files
+data/input/*
+data/output/*
+!data/input/.gitkeep
+!data/output/.gitkeep

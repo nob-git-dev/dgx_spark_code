@@ -1,12 +1,17 @@
-# Environment
-.env
-
 # Python
 __pycache__/
 *.pyc
 *.pyo
 .venv/
 *.egg-info/
+
+# Environment
+.env
+
+# Data (persistent volumes)
+data/chroma/
+data/uploads/
+data/workspace/
 
 # IDE
 .vscode/
@@ -15,6 +20,3 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
-
-# Claude Code
-.claude/

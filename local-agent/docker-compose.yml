@@ -1,0 +1,79 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: local-agent
+    ports:
+      - "${AGENT_PORT:-8090}:8090"
+    volumes:
+      # Frontend static files (hot-reload during dev)
+      - ./frontend:/app/frontend:ro
+      # Agent workspace (read-write for file ops)
+      - ./data/workspace:/app/workspace
+      # Uploaded documents
+      - ./data/uploads:/app/uploads
+      # Docker socket for sandbox container management
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gpt-oss-120b-128k}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nemotron-3-nano}
+      - CHROMA_HOST=chroma
+      - CHROMA_PORT=8000
+      - SANDBOX_IMAGE=local-agent-sandbox
+      - WORKSPACE_HOST_PATH=${WORKSPACE_HOST_PATH}
+      - WORKSPACE_DIR=/app/workspace
+      - UPLOADS_DIR=/app/uploads
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - AGENT_PORT=8090
+      - PYTHONUNBUFFERED=1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      chroma:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - llm-network
+      - agent-internal
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: local-agent-chroma
+    volumes:
+      - ./data/chroma:/data
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD-SHELL", "chroma --version"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - agent-internal
+
+  sandbox:
+    build:
+      context: ./sandbox
+      dockerfile: Dockerfile
+    image: local-agent-sandbox
+    # This service is NOT started by compose.
+    # The backend uses Docker SDK to spawn ephemeral containers from this image.
+    profiles:
+      - build-only
+
+networks:
+  llm-network:
+    external: true
+  agent-internal:
+    driver: bridge
