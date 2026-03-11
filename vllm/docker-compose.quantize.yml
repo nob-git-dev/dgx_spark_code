@@ -1,0 +1,46 @@
+# NVFP4 quantization for Nemotron-9B-v2-Japanese
+#
+# Usage:
+#   docker compose -f docker-compose.quantize.yml run --rm quantize
+#
+# Output will be saved to ./models/nemotron-9b-v2-japanese-nvfp4/
+#
+services:
+  quantize:
+    build: ./quantize
+    container_name: nemotron-nvfp4-quantize
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - TORCH_CUDA_ARCH_LIST=12.1a
+      - NVIDIA_DISABLE_REQUIRE=1
+      - CUDA_DRIVER_VERSION=""
+    volumes:
+      - ${HF_CACHE_VOLUME:-vllm_hf_cache}:/root/.cache/huggingface
+      - ./models/nemotron-9b-v2-japanese-nvfp4:/workspace/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    # Default: PTQ with 256 calibration samples
+    # Override with: docker compose ... run --rm quantize --calib-size 512
+    command: >
+      --model nvidia/NVIDIA-Nemotron-Nano-9B-v2-Japanese
+      --output /workspace/output
+      --calib-size 256
+      --calib-dataset cnn_dailymail
+      --seq-len 2048
+
+volumes:
+  vllm_hf_cache:
+    external: true
