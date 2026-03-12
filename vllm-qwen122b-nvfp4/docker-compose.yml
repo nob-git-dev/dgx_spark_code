@@ -1,6 +1,6 @@
 services:
   vllm-qwen122b:
-    build: ./qwen122b
+    build: .
     image: vllm-spark:qwen3.5-122b-nvfp4
     container_name: vllm-qwen122b
     environment:

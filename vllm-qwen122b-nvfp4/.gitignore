@@ -1,0 +1,20 @@
+.env
+.env.qwen122b
+
+# Data & models
+data/
+models/
+
+# vLLM / FlashInfer caches
+.cache/
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+
+# Claude Code
+.claude/

@@ -1,58 +1,20 @@
-services:
-  # OCR・画像認識用 VLM（Qwen3-VL）
-  vllm-ocr:
-    image: nvcr.io/nvidia/vllm:${VLLM_IMAGE_TAG:-26.01-py3}
-    container_name: vllm-ocr
-    # restart: unless-stopped
-    ports:
-      - "${OCR_PORT:-8000}:8000"
-    volumes:
-      - ${HF_CACHE_VOLUME:-vllm_hf_cache}:/root/.cache/huggingface
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-    security_opt:
-      - seccomp:unconfined
-    environment:
-      - HF_TOKEN=${HF_TOKEN:-}
-      - TORCH_COMPILE_DISABLE=1
-    shm_size: "8gb"
-    command: >
-      vllm serve ${OCR_MODEL:-Qwen/Qwen3-VL-8B-Instruct}
-      --host 0.0.0.0
-      --port 8000
-      --gpu-memory-utilization ${GPU_MEMORY_UTIL_OCR:-0.28}
-      --max-model-len ${MAX_MODEL_LEN:-32768}
-      --trust-remote-code
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/v1/models"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 180s
-    networks:
-      - llm-network
+# Nemotron-9B-v2-Japanese NVFP4 on vLLM (DGX Spark / GB10 Blackwell)
+#
+# ModelOpt で NVFP4 量子化済みモデルを使用。量子化情報は config.json に埋め込み済み。
+# FP8 に戻す場合: --quantization fp8 を追加し、model パスを HF ID に変更
+#
+# 量子化の再現手順: docker compose -f docker-compose.quantize.yml run --rm quantize
 
-  # 日本語チャット・エージェント用 LLM（Nemotron-9B-Japanese / NVFP4）
-  # ModelOpt で NVFP4 量子化済みモデルを使用。量子化情報は config.json に埋め込み済み。
-  # FP8 に戻す場合: --quantization fp8 を追加し、model パスを HF ID に変更
+services:
   vllm-chat:
     image: nvcr.io/nvidia/vllm:${VLLM_IMAGE_TAG:-26.01-py3}
     container_name: vllm-chat
-    # restart: unless-stopped
     ports:
       - "${CHAT_PORT:-8001}:8000"
     volumes:
       - ${HF_CACHE_VOLUME:-vllm_hf_cache}:/root/.cache/huggingface
       - ./models/nemotron-9b-v2-japanese-nvfp4:/models/nemotron-nvfp4:ro
-      - ./scripts/plugins:/workspace/plugins:ro
+      - ./plugins:/workspace/plugins:ro
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -97,7 +59,6 @@ services:
 
 networks:
   llm-network:
-    # 他のプロジェクトの Docker からも接続できる共有ネットワーク
     external: true
 
 volumes:
