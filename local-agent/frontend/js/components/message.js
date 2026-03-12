@@ -9,6 +9,7 @@ const TOOL_ICONS = {
   list_files: "📁",
   execute_command: "💻",
   search_documents: "📚",
+  fetch_url: "🌐",
 };
 
 /**
@@ -132,6 +133,59 @@ export function appendAnswer(messageEl, content) {
   bubble.className = "message-bubble";
   bubble.innerHTML = renderMarkdown(content);
   contentDiv.appendChild(bubble);
+
+  // Add copy button
+  const copyBtn = document.createElement("button");
+  copyBtn.className = "btn-copy";
+  copyBtn.title = "Copy to clipboard";
+  copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(content).then(() => {
+      copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`;
+      setTimeout(() => {
+        copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+      }, 2000);
+    });
+  });
+  contentDiv.appendChild(copyBtn);
+}
+
+/**
+ * Add model switching progress block to assistant message
+ */
+export function appendSwitching(messageEl, info) {
+  removeLoading(messageEl);
+  const content = messageEl.querySelector(".message-content");
+
+  // Update existing switching block if present, otherwise create new
+  let block = content.querySelector(".switching-block");
+  if (!block) {
+    block = document.createElement("div");
+    block.className = "switching-block";
+    content.appendChild(block);
+  }
+
+  const isError = info.phase === "error";
+  const elapsed = info.elapsed != null ? `${info.elapsed}秒` : "";
+
+  block.innerHTML = `
+    <div class="switching-header">
+      ${isError ? "⚠" : "🔄"} モデル切り替え中
+    </div>
+    <div class="switching-body">
+      <span class="switching-message">${escapeHtml(info.message)}</span>
+      ${elapsed ? `<span class="switching-elapsed">${elapsed}</span>` : ""}
+    </div>
+    ${!isError && info.elapsed != null ? `
+      <div class="switching-progress">
+        <div class="switching-progress-bar" style="width: ${Math.min((info.elapsed / 300) * 100, 100)}%"></div>
+      </div>
+    ` : ""}
+  `;
+
+  if (isError) {
+    block.classList.add("switching-error");
+  }
 }
 
 /**

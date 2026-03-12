@@ -1,4 +1,4 @@
-"""Async LLM client for Ollama OpenAI-compatible API"""
+"""Async LLM client via model-router (OpenAI-compatible API)"""
 
 import logging
 from typing import Any
@@ -18,21 +18,42 @@ def get_client() -> httpx.AsyncClient:
     if _client is None:
         settings = get_settings()
         _client = httpx.AsyncClient(
-            base_url=settings.ollama_base_url,
-            # GPT-OSS-120B: initial load can take 5+ min, inference up to 5 min
+            base_url=settings.llm_base_url,
+            # Model switching can take 5+ min, inference up to 5 min
             timeout=httpx.Timeout(connect=30, read=600, write=30, pool=30),
         )
     return _client
 
 
+async def list_models() -> list[dict[str, Any]]:
+    """Fetch available models from model-router /v1/models."""
+    client = get_client()
+    response = await client.get("/v1/models")
+    response.raise_for_status()
+    data = response.json()
+    return data.get("data", [])
+
+
+async def get_router_status() -> dict[str, Any]:
+    """Fetch router status from model-router /v1/status."""
+    client = get_client()
+    response = await client.get(
+        "/v1/status",
+        timeout=httpx.Timeout(connect=5, read=5, write=5, pool=5),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 async def chat_completion(
     messages: list[dict],
     tools: list[dict] | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """
-    Call Ollama's OpenAI-compatible chat completion endpoint.
+    Call model-router's OpenAI-compatible chat completion endpoint.
 
-    When tools are provided, GPT-OSS may return:
+    When tools are provided, the model may return:
     - finish_reason="tool_calls" with tool_calls in the message
     - finish_reason="stop" with content (final answer)
     """
@@ -40,7 +61,7 @@ async def chat_completion(
     client = get_client()
 
     payload: dict[str, Any] = {
-        "model": settings.ollama_model,
+        "model": model or settings.default_model,
         "messages": messages,
         "max_tokens": settings.max_tokens,
         "temperature": settings.temperature,
@@ -50,7 +71,7 @@ async def chat_completion(
         payload["tools"] = tools
 
     logger.debug("LLM request: model=%s, messages=%d, tools=%d",
-                 settings.ollama_model, len(messages), len(tools or []))
+                 payload["model"], len(messages), len(tools or []))
 
     response = await client.post("/v1/chat/completions", json=payload)
     response.raise_for_status()
@@ -58,7 +79,7 @@ async def chat_completion(
 
 
 async def create_embedding(text: str) -> list[float]:
-    """Create an embedding using Ollama's OpenAI-compatible endpoint."""
+    """Create an embedding using the OpenAI-compatible endpoint."""
     settings = get_settings()
     client = get_client()
 

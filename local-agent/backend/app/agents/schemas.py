@@ -28,14 +28,24 @@ class ToolResult(BaseModel):
     is_error: bool = False
 
 
+class SwitchingInfo(BaseModel):
+    """Model switching progress info from model-router."""
+    phase: str
+    elapsed: int | None = None
+    message: str
+
+
 class AgentStep(BaseModel):
     """A single step in the ReAct loop, emitted via SSE."""
-    type: str  # "thinking", "tool_call", "tool_result", "answer", "error"
+    type: str  # "thinking", "tool_call", "tool_result", "answer", "error", "switching", "cancelled"
     reasoning: str | None = None
     tool_call: ToolCall | None = None
     tool_result: ToolResult | None = None
     content: str | None = None
     error: str | None = None
+    switching: SwitchingInfo | None = None
+    iteration: int | None = None
+    max_iterations: int | None = None
 
 
 class ConversationTurn(BaseModel):

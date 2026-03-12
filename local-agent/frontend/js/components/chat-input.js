@@ -1,9 +1,12 @@
 /**
- * Chat input — auto-resize textarea
+ * Chat input — auto-resize textarea with IME support
  */
 
 const input = document.getElementById("chat-input");
 const sendBtn = document.getElementById("btn-send");
+
+// IME composing guard (double-check with e.isComposing)
+let composing = false;
 
 /**
  * Initialize input behaviors
@@ -20,8 +23,19 @@ export function initInput() {
     sendBtn.disabled = !input.value.trim();
   });
 
+  // IME composition events (for 2-byte character input)
+  input.addEventListener("compositionstart", () => { composing = true; });
+  input.addEventListener("compositionend", () => { composing = false; });
+
   // Initial state
   sendBtn.disabled = true;
+}
+
+/**
+ * Whether the input is currently in IME composition
+ */
+export function isComposing() {
+  return composing;
 }
 
 /**

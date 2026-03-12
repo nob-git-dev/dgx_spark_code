@@ -333,6 +333,58 @@
   color: var(--color-green);
 }
 
+/* ---- Switching (model change progress) ---- */
+.switching-block {
+  padding: 8px 12px;
+  border-left: 3px solid var(--color-blue);
+  background: rgba(0, 122, 255, 0.06);
+  border-radius: 0 var(--border-radius-badge) var(--border-radius-badge) 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.switching-block.switching-error {
+  border-left-color: var(--color-orange, #FF9500);
+  background: rgba(255, 149, 0, 0.06);
+}
+
+.switching-header {
+  font-weight: 500;
+  color: var(--color-blue);
+  margin-bottom: 4px;
+}
+
+.switching-error .switching-header {
+  color: var(--color-orange, #FF9500);
+}
+
+.switching-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.switching-elapsed {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.switching-progress {
+  margin-top: 6px;
+  height: 3px;
+  background: var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.switching-progress-bar {
+  height: 100%;
+  background: var(--color-blue);
+  border-radius: 2px;
+  transition: width 2s linear;
+}
+
 /* ---- Error message ---- */
 .error-block {
   padding: 8px 12px;
@@ -341,6 +393,65 @@
   border-radius: 0 var(--border-radius-badge) var(--border-radius-badge) 0;
   color: var(--color-red);
   font-size: 13px;
+}
+
+/* ---- Stop button ---- */
+.btn-stop {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-red);
+  color: var(--text-on-color);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.btn-stop:hover {
+  opacity: 0.85;
+}
+
+/* ---- Copy button ---- */
+.btn-copy {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: var(--bg-tool-step);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: all var(--transition-fast);
+  margin-top: 4px;
+}
+
+.btn-copy:hover {
+  color: var(--text-primary);
+  background: var(--border-color);
+}
+
+.message-assistant:hover .btn-copy {
+  display: inline-flex;
+}
+
+/* ---- Iteration counter ---- */
+.iteration-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+  background: var(--bg-tool-step);
+  border-radius: var(--border-radius-badge);
+  display: inline-block;
+  animation: fadeIn 0.3s ease;
 }
 
 /* ---- Streaming cursor ---- */

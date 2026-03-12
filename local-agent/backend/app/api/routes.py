@@ -1,5 +1,6 @@
 """API routes for the agent"""
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -10,7 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.agents.react import run_agent
 from app.config import get_settings
-from app.llm.client import create_embedding
+from app.llm.client import create_embedding, list_models as llm_list_models
 from app.memory.conversation import ConversationStore
 from app.tools import create_registry
 from app.tools.rag import get_chroma, chunk_text, COLLECTION_NAME
@@ -24,6 +25,9 @@ router = APIRouter(prefix="/api/v1", tags=["agent"])
 _store: ConversationStore | None = None
 _registry: ToolRegistry | None = None
 
+# Active cancel events keyed by conversation_id
+_cancel_events: dict[str, asyncio.Event] = {}
+
 
 def setup(store: ConversationStore):
     """Initialize global instances."""
@@ -32,12 +36,24 @@ def setup(store: ConversationStore):
     _registry = create_registry()
 
 
+@router.get("/models")
+async def get_models():
+    """Fetch available models from model-router."""
+    try:
+        models = await llm_list_models()
+        return {"models": models}
+    except Exception as e:
+        logger.error("Failed to fetch models: %s", e)
+        raise HTTPException(status_code=502, detail=f"model-router error: {e}")
+
+
 @router.post("/chat")
 async def chat(request: Request):
     """Send a message to the agent. Returns SSE stream of AgentStep events."""
     body = await request.json()
     message = body.get("message", "").strip()
     conversation_id = body.get("conversation_id")
+    model = body.get("model")
 
     if not message:
         raise HTTPException(status_code=400, detail="Message is required")
@@ -50,6 +66,10 @@ async def chat(request: Request):
     else:
         conversation = _store.create()
 
+    # Create cancel event for this conversation
+    cancel_event = asyncio.Event()
+    _cancel_events[conversation.id] = cancel_event
+
     async def generate():
         try:
             # Send conversation ID first
@@ -60,8 +80,11 @@ async def chat(request: Request):
                 })
             }
 
-            # Run agent loop
-            async for step in run_agent(message, conversation, _registry):
+            # Run agent loop with cancel support
+            async for step in run_agent(
+                message, conversation, _registry,
+                model=model, cancel_event=cancel_event,
+            ):
                 yield {
                     "data": json.dumps(
                         step.model_dump(exclude_none=True)
@@ -79,8 +102,20 @@ async def chat(request: Request):
                     "error": str(e),
                 })
             }
+        finally:
+            _cancel_events.pop(conversation.id, None)
 
     return EventSourceResponse(generate())
+
+
+@router.post("/chat/{conversation_id}/cancel")
+async def cancel_chat(conversation_id: str):
+    """Cancel an active agent run for a conversation."""
+    cancel_event = _cancel_events.get(conversation_id)
+    if not cancel_event:
+        raise HTTPException(status_code=404, detail="No active run for this conversation")
+    cancel_event.set()
+    return {"ok": True}
 
 
 @router.get("/conversations")

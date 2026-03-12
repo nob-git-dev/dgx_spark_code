@@ -16,6 +16,10 @@ export const api = {
     return apiFetch("/api/v1/conversations");
   },
 
+  getModels() {
+    return apiFetch("/api/v1/models");
+  },
+
   deleteConversation(id) {
     return apiFetch(`/api/v1/conversations/${id}`, { method: "DELETE" });
   },
@@ -33,18 +37,33 @@ export const api = {
 };
 
 /**
+ * Cancel an active agent run for a conversation.
+ */
+export async function cancelChat(conversationId) {
+  try {
+    await apiFetch(`/api/v1/chat/${conversationId}/cancel`, { method: "POST" });
+  } catch {
+    // Ignore errors (e.g., already finished)
+  }
+}
+
+/**
  * Send a chat message via POST and parse SSE stream.
  * EventSource only supports GET, so we use fetch + ReadableStream.
+ * Accepts an optional AbortSignal for cancellation.
  */
-export async function sendMessage(message, conversationId, onStep) {
-  const res = await fetch("/api/v1/chat", {
+export async function sendMessage(message, conversationId, onStep, model = null, signal = null) {
+  const body = { message, conversation_id: conversationId };
+  if (model) body.model = model;
+
+  const fetchOptions = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message,
-      conversation_id: conversationId,
-    }),
-  });
+    body: JSON.stringify(body),
+  };
+  if (signal) fetchOptions.signal = signal;
+
+  const res = await fetch("/api/v1/chat", fetchOptions);
 
   if (!res.ok) {
     throw new Error(`Chat failed: HTTP ${res.status}`);
@@ -54,33 +73,41 @@ export async function sendMessage(message, conversationId, onStep) {
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop(); // Keep incomplete line in buffer
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop(); // Keep incomplete line in buffer
 
-    for (const line of lines) {
-      if (line.startsWith("data: ")) {
-        try {
-          const data = JSON.parse(line.slice(6));
-          onStep(data);
-        } catch {
-          // Skip malformed data
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            onStep(data);
+          } catch {
+            // Skip malformed data
+          }
         }
       }
     }
-  }
 
-  // Process remaining buffer
-  if (buffer.startsWith("data: ")) {
-    try {
-      const data = JSON.parse(buffer.slice(6));
-      onStep(data);
-    } catch {
-      // Skip
+    // Process remaining buffer
+    if (buffer.startsWith("data: ")) {
+      try {
+        const data = JSON.parse(buffer.slice(6));
+        onStep(data);
+      } catch {
+        // Skip
+      }
     }
+  } catch (err) {
+    if (err.name === "AbortError") {
+      // Stream was aborted by user — not an error
+      return;
+    }
+    throw err;
   }
 }

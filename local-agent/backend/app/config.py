@@ -7,8 +7,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     # LLM
-    ollama_base_url: str = "http://host.docker.internal:11434"
-    ollama_model: str = "gpt-oss-120b-128k"
+    llm_base_url: str = "http://model-router:8010"
+    default_model: str = "gpt-oss-120b-128k"
     embedding_model: str = "nemotron-3-nano"
     max_tokens: int = 4096
     temperature: float = 0.7

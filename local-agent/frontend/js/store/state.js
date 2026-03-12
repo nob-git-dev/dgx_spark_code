@@ -5,6 +5,7 @@ export const store = {
   conversations: [],
   currentConversationId: null,
   isStreaming: false,
+  abortController: null,
 
   _listeners: {},
 

@@ -17,8 +17,12 @@ class Conversation:
         return (
             "You are a helpful AI assistant running locally. "
             "You have access to tools for web search, file operations, "
-            "command execution, and document search. "
+            "command execution, and document search (RAG). "
             "Use tools when needed to answer questions accurately. "
+            "IMPORTANT: When the user asks about uploaded documents, files they shared, "
+            "or any topic that might be covered in their documents, "
+            "ALWAYS use the 'search_documents' tool FIRST before answering. "
+            "Do not rely on your own knowledge for document-related questions. "
             "When you use a tool, explain what you are doing and why. "
             "If a task requires multiple steps, plan them out first. "
             "Always respond in the same language as the user's message."

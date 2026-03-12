@@ -27,7 +27,9 @@
       <header class="chat-header">
         <button class="btn btn-ghost btn-sm sidebar-toggle" id="btn-sidebar-toggle">☰</button>
         <span class="chat-title" id="chat-title">New Chat</span>
-        <span class="model-badge">GPT-OSS-120B</span>
+        <select class="model-select" id="model-select">
+          <option value="gpt-oss-120b-128k">読み込み中...</option>
+        </select>
       </header>
 
       <!-- Messages -->
@@ -35,7 +37,7 @@
         <div class="messages" id="messages">
           <div class="welcome-message">
             <h3>Local Agent</h3>
-            <p>GPT-OSS-120B-128K で動作するローカルAIエージェントです。</p>
+            <p>ローカルAIエージェント — モデルを選択して対話できます。</p>
             <div class="capabilities">
               <div class="capability">🔍 Web検索</div>
               <div class="capability">📁 ファイル操作</div>
@@ -51,12 +53,17 @@
         <div class="input-wrapper">
           <textarea
             id="chat-input"
-            placeholder="メッセージを入力..."
+            placeholder="メッセージを入力... (⌘/Ctrl+Enter で送信)"
             rows="1"
           ></textarea>
           <button class="btn btn-primary btn-send" id="btn-send" disabled>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+            </svg>
+          </button>
+          <button class="btn btn-stop" id="btn-stop" style="display:none" title="Stop generating">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="2" y="2" width="12" height="12" rx="2"/>
             </svg>
           </button>
         </div>

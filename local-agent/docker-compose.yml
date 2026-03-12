@@ -16,8 +16,8 @@ services:
       # Docker socket for sandbox container management
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-gpt-oss-120b-128k}
+      - LLM_BASE_URL=http://model-router:8010
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-gpt-oss-120b-128k}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nemotron-3-nano}
       - CHROMA_HOST=chroma
       - CHROMA_PORT=8000
