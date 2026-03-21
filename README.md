@@ -11,6 +11,7 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | [**vllm-qwen122b-nvfp4**](./vllm-qwen122b-nvfp4/) | Qwen3.5-122B-A10B NVFP4 の vLLM カスタムビルド。FlashInfer SM121 コンパイル + パッチ適用 | vLLM (custom), FlashInfer, NVFP4 |
 | [**local-agent**](./local-agent/) | ReActパターンのエージェンティックAIチャットシステム。Web検索・ファイル操作・サンドボックス実行・RAGの6ツールを搭載 | FastAPI, Ollama, ChromaDB, Docker SDK, Vanilla JS |
 | [**whisper-transcriber**](./whisper-transcriber/) | GPU高速推論による音声・動画文字起こしツール。REST API / Web UI / CLI の3インターフェース | FastAPI, faster-whisper (CTranslate2), Gradio |
+| [**env-docs**](./env-docs/) | DGX Sparkの環境情報を構造化管理するテンプレート。Claude Codeのスラッシュコマンドで自然言語から自動同期 | Markdown, Claude Code |
 
 ## 共通の前提環境
 
