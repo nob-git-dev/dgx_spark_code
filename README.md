@@ -12,6 +12,7 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | [**local-agent**](./local-agent/) | ReActパターンのエージェンティックAIチャットシステム。Web検索・ファイル操作・サンドボックス実行・RAGの6ツールを搭載 | FastAPI, Ollama, ChromaDB, Docker SDK, Vanilla JS |
 | [**whisper-transcriber**](./whisper-transcriber/) | GPU高速推論による音声・動画文字起こしツール。REST API / Web UI / CLI の3インターフェース | FastAPI, faster-whisper (CTranslate2), Gradio |
 | [**env-docs**](./env-docs/) | DGX Sparkの環境情報を構造化管理するテンプレート。Claude Codeのスラッシュコマンドで自然言語から自動同期 | Markdown, Claude Code |
+| [**gx10-mcp**](./gx10-mcp/) | MCP Server + Agent Kanban System。トヨタ看板方式をAIエージェント間協調に適用。Redis-backed のカード管理・リソースプール・イベント駆動ルール | FastMCP, Redis, Claude Code |
 
 ## 共通の前提環境
 

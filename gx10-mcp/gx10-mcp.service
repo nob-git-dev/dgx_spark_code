@@ -1,0 +1,16 @@
+[Unit]
+Description=GX10 MCP Server
+After=network.target
+
+[Service]
+Type=simple
+# Adjust paths to match your environment
+WorkingDirectory=%h/projects/gx10-mcp
+ExecStart=%h/.local/bin/uv run server.py
+Restart=on-failure
+RestartSec=5
+Environment=TRANSPORT=streamable-http
+Environment=MCP_PORT=9100
+
+[Install]
+WantedBy=default.target

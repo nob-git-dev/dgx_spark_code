@@ -1,0 +1,83 @@
+# Agent Kanban System — Configuration
+# See README.md for design documentation.
+
+# ───────────────────────────────────
+# ボード定義: 列構成とWIP制限
+# ───────────────────────────────────
+boards:
+  default:
+    columns: [backlog, ready, active, done]
+    wip:
+      active: 3
+
+  devops:
+    columns: [todo, dev, review, staging, production]
+    wip:
+      dev: 2
+      review: 3
+
+  research:
+    columns: [question, exploring, synthesizing, concluded]
+    wip:
+      exploring: 2
+
+# ───────────────────────────────────
+# レーン: 優先度クラス
+# ───────────────────────────────────
+lanes:
+  expedite:
+    wip: 1
+    preempt: true
+  standard:
+    wip: ~
+  research:
+    wip: ~
+
+# ───────────────────────────────────
+# リソース: あらゆる「有限で共有されるもの」
+# ───────────────────────────────────
+resources:
+  gpu-memory:
+    capacity: 128
+    unit: GB
+
+  model-slot:
+    capacity: 1
+
+  port:
+    type: pool
+    items: ["30000", "30001", "11434"]
+
+  deploy-lock:
+    capacity: 1
+
+  edit-lock:
+    type: named
+
+# ───────────────────────────────────
+# エージェント
+# ───────────────────────────────────
+agents:
+  gx10-claude:
+    capabilities: [gpu-ops, docker, system-admin]
+  mac-claude:
+    capabilities: [frontend, research, testing]
+  nanoclaw:
+    capabilities: [monitoring, scheduling]
+
+# ───────────────────────────────────
+# ルール: イベント駆動の自動化
+# ───────────────────────────────────
+rules:
+  - name: auto-release-on-done
+    "on": card.done
+    "do": release_all
+
+  - name: andon-on-expedite-failure
+    "on": card.failed
+    "if": "card.lane == 'expedite'"
+    "do": andon
+
+  - name: journal-on-done
+    "on": card.done
+    "do": write_journal
