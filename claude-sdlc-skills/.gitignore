@@ -1,0 +1,34 @@
+# OS / Editor
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Backups
+.backup-*/
+*.bak
+
+# Internal docs (not for public release)
+docs/internal/
+
+# Claude Code local state
+.claude/
+MEMORY.md
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/

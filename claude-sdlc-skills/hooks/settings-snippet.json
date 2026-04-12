@@ -1,0 +1,39 @@
+{
+  "_comment": "settings.json に統合する hook 設定の例。既存の settings.json にマージしてください。YOUR_USER を実際のユーザー名（Mac は /Users/xxx、Linux は /home/xxx）に置換。",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/YOUR_USER/.claude/hooks/guard-bash.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/YOUR_USER/.claude/hooks/guard-write.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/YOUR_USER/.claude/hooks/suggest-sdlc.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  },
+  "agent": "supervisor"
+}
