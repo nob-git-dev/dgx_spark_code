@@ -136,7 +136,7 @@ $ARGUMENTS を受け取る（SPEC.md 全文 + デプロイ対象）
 
 ### 受け入れ条件の照合結果
 - [x] docker ps: mineru-api Up (healthy) — 確認済み
-- [x] curl http://192.168.3.18:8091/health → 200 — {"status":"healthy","version":"3.0.9"}
+- [x] curl http://<SERVER_IP>:8091/health → 200 — {"status":"healthy","version":"x.x.x"}
 - [ ] nvidia-smi で MinerU プロセスの GPU 使用確認 — 未確認
 ```
 
