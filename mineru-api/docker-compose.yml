@@ -1,0 +1,36 @@
+services:
+  mineru-api:
+    build: .
+    container_name: mineru-api
+    restart: unless-stopped
+    ports:
+      - "8091:8091"
+    environment:
+      # MINERU_MODEL_SOURCE は entrypoint.sh でも設定するが、念のため明示
+      MINERU_MODEL_SOURCE: local
+    # entrypoint と command は entrypoint.sh に移譲（docker-compose での上書き不要）
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    volumes:
+      - ./models:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8091/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - llm-network
+
+networks:
+  llm-network:
+    external: true
