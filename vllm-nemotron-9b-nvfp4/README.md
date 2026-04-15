@@ -182,3 +182,19 @@ vllm-nemotron-9b-nvfp4/
 │   └── test-chat.sh
 └── models/                       # (gitignore) 量子化済みモデル出力先
 ```
+
+## ライセンス
+
+| 対象 | ライセンス |
+|---|---|
+| 本リポジトリのコード（Dockerfile・スクリプト等） | MIT |
+| vLLM | [Apache License 2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE) |
+| **Nemotron-Nano-9B-v2-Japanese モデル** | **[NVIDIA Open Model License](https://developer.download.nvidia.com/licenses/nvidia-open-model-license-agreement-june-2024.pdf)** |
+| NVIDIA ModelOpt | [NVIDIA Proprietary License](https://github.com/NVIDIA/TensorRT-Model-Optimizer/blob/main/LICENSE) |
+
+> ⚠️ **Nemotron モデルのライセンスに注意**
+>
+> `nvidia/NVIDIA-Nemotron-Nano-9B-v2-Japanese` は **NVIDIA Open Model License** の適用を受けます。
+> このライセンスは商用利用を許可していますが、モデルを利用するサービスにおいて
+> エンドユーザーへの一定の制限（同ライセンスの条件遵守）を課す条件があります。
+> 商用利用前に必ず[ライセンス全文](https://developer.download.nvidia.com/licenses/nvidia-open-model-license-agreement-june-2024.pdf)を確認してください。

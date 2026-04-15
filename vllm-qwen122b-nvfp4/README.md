@@ -52,3 +52,20 @@ vllm-qwen122b-nvfp4/
     ├── download-qwen122b.sh  # モデルダウンロード
     └── test-qwen122b.sh      # テスト
 ```
+
+## ライセンス
+
+| 対象 | ライセンス |
+|---|---|
+| 本リポジトリのコード（Dockerfile・docker-compose.yml 等） | MIT |
+| **`patches/` および `qwen3_5_vl_moe.py`** | **[Apache License 2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE)** |
+| vLLM（ビルド元） | [Apache License 2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE) |
+| FlashInfer | [Apache License 2.0](https://github.com/flashinfer-ai/flashinfer/blob/main/LICENSE) |
+| Qwen3.5 モデル | [Qwen License](https://huggingface.co/Qwen/Qwen3.5-122B-A10B/blob/main/LICENSE) |
+
+> **`patches/` と `qwen3_5_vl_moe.py` について**
+>
+> これらのファイルは [vLLM](https://github.com/vllm-project/vllm)（Apache License 2.0）の
+> ソースコードを改変したものです。`qwen3_5_vl_moe.py` には
+> `# SPDX-License-Identifier: Apache-2.0` を明記しています。
+> Apache 2.0 の条件に従い、改変の事実をここに記載します。
