@@ -8,10 +8,13 @@ Exit code 0 always (never block the tool call).
 Usage in Claude Code settings.json:
   "hooks": {
     "PreToolUse": [{
-      "command": "python3 ~/projects/gx10-mcp/hooks/check_board.py gx10-claude",
-      "timeout": 3000
+      "command": "uv --project /YOUR/INSTALL/PATH run python3 /YOUR/INSTALL/PATH/hooks/check_board.py your-agent-name",
+      "timeout": 3
     }]
   }
+
+NOTE: Replace /YOUR/INSTALL/PATH with the actual directory where you cloned this repo.
+      This hook requires redis-py (included in uv env). Unlike other hooks, must run via uv.
 """
 
 import json

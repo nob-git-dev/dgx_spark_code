@@ -25,16 +25,15 @@ REST API + WebSocket による **マルチ Claude エージェント管制シス
 
 ## 前提条件
 
-### Python / uv
+- Python 3.12+ / [uv](https://docs.astral.sh/uv/) — ARM64 (aarch64) Linux 専用
+- Docker（Redis 用）
+- systemd（常駐サービスとして使う場合）
 
 ```bash
 # uv がなければインストール
 curl -LsSf https://astral.sh/uv/install.sh | sh
-```
 
-### Docker（Redis 用）
-
-```bash
+# Redis 起動
 docker compose up -d
 ```
 
@@ -154,15 +153,6 @@ FastAPI REST API（port 9100）
 
 `kanban.yml` を編集してボード・リソース・レーン・ルールを定義する。
 コードを変えずに設定のみでドメインを切り替えられる（Mechanism, not Policy）。
-
----
-
-## 前提環境
-
-- Python 3.12+ / [uv](https://docs.astral.sh/uv/)
-- Docker（Redis 用）
-- ARM64 (aarch64) — NVIDIA DGX Spark / ASUS Ascent GX10 を想定
-- systemd（常駐サービスとして使う場合）
 
 ---
 
