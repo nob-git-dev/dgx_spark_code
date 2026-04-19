@@ -1,5 +1,11 @@
 # Claude SDLC Skills
 
+> ⚠️ **このディレクトリは移転しました**
+> 
+> 新しい場所: **[https://github.com/nob-git-dev/claude-skills/tree/main/sdlc-skills](https://github.com/nob-git-dev/claude-skills/tree/main/sdlc-skills)**
+> 
+> このディレクトリは参照用に残していますが、更新は新リポジトリで行われます。
+
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](LICENSE)
 [![Commercial License Available](https://img.shields.io/badge/Commercial%20License-Available-blue.svg)](LICENSE-COMMERCIAL.md)
 
