@@ -1,5 +1,5 @@
 # Agent Kanban System — Configuration
-# See README.md for design documentation.
+# See ~/projects/docs/designs/agent-kanban.md for design documentation.
 
 # ───────────────────────────────────
 # ボード定義: 列構成とWIP制限

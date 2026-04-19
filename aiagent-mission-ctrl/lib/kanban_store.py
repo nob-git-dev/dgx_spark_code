@@ -6,11 +6,15 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import redis.asyncio as aioredis
 import yaml
+
+from .config import DOCS_DIR
+from .git import commit_file
 
 logger = logging.getLogger("gx10-mcp")
 
@@ -184,11 +188,72 @@ class KanbanStore:
         elif action == "andon":
             await self.andon(data.get("agent", "system"), "auto-rule triggered")
         elif action == "write_journal":
-            pass  # Handled by tools layer which has access to the journal tool
+            if card_id:
+                await self._write_journal_from_card(card_id, data)
         elif action == "notify":
             pass  # Future: push notification to all agents
         else:
             logger.warning("Unknown rule action: %s", action)
+
+    async def _write_journal_from_card(self, card_id: str, data: dict) -> None:
+        """Write a journal entry from a completed card."""
+        card = await self._get_card(card_id)
+        if not card:
+            return
+
+        agent = card.get("owner", "unknown")
+        title = card.get("title", card_id)
+        result = card.get("result", "")
+        today = str(date.today())
+
+        # Frontmatter with kanban metadata
+        fm_fields = {
+            "agent": agent,
+            "date": today,
+            "card": card_id,
+            "lane": card.get("lane", ""),
+            "size": card.get("size", ""),
+            "board": card.get("board", ""),
+        }
+        cycle_time = data.get("cycle_time", "")
+        if cycle_time:
+            fm_fields["cycle"] = cycle_time
+
+        fm_lines = ["---"]
+        for k, v in fm_fields.items():
+            if v:
+                fm_lines.append(f"{k}: {v}")
+        fm_lines.append("---")
+        frontmatter = "\n".join(fm_lines)
+
+        # Body
+        body_parts = []
+        desc = card.get("desc", "")
+        if desc:
+            body_parts.append(desc)
+        if result:
+            if body_parts:
+                body_parts.append("")
+            body_parts.append("## Result")
+            body_parts.append("")
+            body_parts.append(result)
+
+        body = "\n".join(body_parts) if body_parts else "(no content)"
+
+        # Write file
+        journal_dir = DOCS_DIR / "journal"
+        journal_dir.mkdir(exist_ok=True)
+        slug = title.lower().replace(" ", "-").replace("【", "").replace("】", "")[:60]
+        filename = f"{today}-{slug}.md"
+        filepath = journal_dir / filename
+
+        filepath.write_text(f"{frontmatter}\n# {title}\n\n{body}\n")
+
+        err = await commit_file(f"journal/{filename}", f"journal: {title}")
+        if err:
+            logger.warning("Journal auto-commit failed for %s: %s", card_id, err)
+        else:
+            logger.info("Journal written: journal/%s", filename)
 
     # ─── Cards ────────────────────────────────────────
 

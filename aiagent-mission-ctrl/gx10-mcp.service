@@ -4,13 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-# Adjust paths to match your environment
 WorkingDirectory=%h/projects/gx10-mcp
-ExecStart=%h/.local/bin/uv run server.py
+ExecStart=%h/.local/bin/uv run uvicorn server:app --host 0.0.0.0 --port 9100
 Restart=on-failure
 RestartSec=5
-Environment=TRANSPORT=streamable-http
-Environment=MCP_PORT=9100
 
 [Install]
 WantedBy=default.target

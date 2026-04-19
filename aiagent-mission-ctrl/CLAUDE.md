@@ -1,25 +1,27 @@
 # GX10 MCP Server
 
 ## プロジェクト概要
-DGX Spark互換マシンのインフラ管理をMCPプロトコルで公開するサーバー。
+GX10のインフラ管理をMCPプロトコルで公開するサーバー。
+設計書: `~/projects/docs/designs/mcp-server.md`
 
 ## Agent Kanban System
 看板方式ベースのエージェント間協調システム。
+設計書: `~/projects/docs/designs/agent-kanban.md`
 設定: `kanban.yml`（ボード・リソース・ルール定義）
 
 ### アーキテクチャ
 - `lib/kanban_store.py` — Redis操作、カードライフサイクル、リソース管理、ルールエンジン
 - `tools/kanban.py` — MCPツール10個（card/claim/done/board/reserve/release/resources/andon/signal/watch）
 - `hooks/check_board.py` — Claude Code PreToolUse hook（未読通知）
-- `docker-compose.yml` — Redis コンテナ
+- `docker-compose.yml` — Redis コンテナ（llm-network 参加）
 
 ### 依存サービス
 - Redis 7（`docker compose up -d` で起動）
 - 環境変数 `REDIS_URL` でRedis接続先を変更可能（デフォルト: `redis://localhost:6379`）
 
 ### エージェント識別
-- ツール呼び出し時に `agent` パラメータとして明示的に渡す
-- エージェント名は `kanban.yml` の `agents` セクションで定義
+- 現状: ツール呼び出し時に `agent` パラメータとして明示的に渡す（TODO: FastMCPセッションメタデータから自動取得）
+- エージェント名: `gx10-claude`, `mac-claude`, `nanoclaw`
 
 ## 実行方式
 - ホストOS上で `uv run server.py` で直接実行（Docker不使用）
