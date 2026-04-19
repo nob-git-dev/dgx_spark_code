@@ -23,6 +23,34 @@ REST API + WebSocket による **マルチ Claude エージェント管制シス
 
 ---
 
+## 前提条件
+
+### Python / uv
+
+```bash
+# uv がなければインストール
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Docker（Redis 用）
+
+```bash
+docker compose up -d
+```
+
+### docs リポジトリ
+
+`write_journal` / `write_decision` 等の write 系操作は `~/projects/docs/` に Git コミットする。
+このリポジトリが存在しない場合、write 系操作はすべて失敗する。
+
+```bash
+mkdir -p ~/projects/docs/{journal,decisions,contracts}
+cd ~/projects/docs
+git init && git commit --allow-empty -m "init: docs repository"
+```
+
+---
+
 ## Quick Start
 
 ```bash
@@ -135,6 +163,86 @@ FastAPI REST API（port 9100）
 - Docker（Redis 用）
 - ARM64 (aarch64) — NVIDIA DGX Spark / ASUS Ascent GX10 を想定
 - systemd（常駐サービスとして使う場合）
+
+---
+
+## Claude Code 連携セットアップ
+
+サーバーを起動しただけでは Claude は自動では使ってくれない。
+以下の2ステップで Claude Code と繋ぐ。
+
+### 1. フック設定（~/.claude/settings.json）
+
+`~/.claude/settings.json` の `"hooks"` に以下を追記する。
+**パスは自分のインストールディレクトリに合わせて変更すること。**
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "startup",
+      "hooks": [{
+        "type": "command",
+        "command": "python3 /path/to/aiagent-mission-ctrl/hooks/session_start.py",
+        "timeout": 5
+      }]
+    }],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{
+          "type": "command",
+          "command": "python3 /path/to/aiagent-mission-ctrl/hooks/activity_guard.py",
+          "timeout": 3
+        }]
+      },
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "uv --project /path/to/aiagent-mission-ctrl run python3 /path/to/aiagent-mission-ctrl/hooks/check_board.py your-agent-name",
+          "timeout": 3
+        }]
+      }
+    ],
+    "Stop": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python3 /path/to/aiagent-mission-ctrl/hooks/stop_guard.py",
+        "timeout": 5
+      }]
+    }]
+  }
+}
+```
+
+> **注意:** `check_board.py` のみ `redis-py` が必要なため `uv --project` 経由で実行する。
+> 他の3フックは Python 標準ライブラリのみで動作するため `python3` 直接実行でよい。
+
+### 2. CLAUDE.md への追記
+
+プロジェクトまたはグローバルの `CLAUDE.md` に以下を追記する。
+これがないと Claude は自発的に `set_activity` や `write_journal` を呼ばない。
+
+```markdown
+## aiagent-mission-ctrl 連携フロー
+
+aiagent-mission-ctrl サーバー（:9100）が接続されている場合、以下のフローに従う。
+
+1. `GET /activity` で他エージェントの作業状況を確認する
+2. コード変更前に `POST /activity` で作業を宣言する
+3. 重要な判断は `POST /recording/decision` で記録する
+4. 作業完了時に `POST /recording/journal` で経緯を記録する
+
+# curl 例
+curl -s http://localhost:9100/activity
+curl -s -X POST http://localhost:9100/activity \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "your-agent-name", "description": "作業内容"}'
+curl -s -X POST http://localhost:9100/recording/journal \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "your-agent-name", "title": "タイトル", "content": "内容"}'
+```
 
 ---
 
