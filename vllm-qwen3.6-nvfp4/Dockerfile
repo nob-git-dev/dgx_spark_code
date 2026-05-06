@@ -234,4 +234,24 @@ else:
         print('split_module tuple_return patch: not needed (may be fixed upstream)')
 PYEOF
 
+# ---- Fix: vLLM register_opaque_type 'hoist' arg not present in PyTorch 2.11 ----
+# PyTorch 2.12 added 'hoist' kwarg to register_opaque_type(); 2.11 raises TypeError.
+# Patch: wrap the call in try/except to fall back gracefully on older PyTorch.
+RUN python3 - <<'PYEOF'
+f = '/usr/local/lib/python3.12/dist-packages/vllm/utils/torch_utils.py'
+import os
+if not os.path.exists(f):
+    print('register_opaque_type hoist patch: file not found, skipping')
+else:
+    txt = open(f).read()
+    old = 'register_opaque_type(LayerName, typ="value", hoist=True)'
+    new = ('try:\n        register_opaque_type(LayerName, typ="value", hoist=True)\n'
+           '    except TypeError:\n        register_opaque_type(LayerName, typ="value")')
+    if old in txt:
+        open(f, 'w').write(txt.replace(old, new))
+        print('register_opaque_type hoist patch: applied')
+    else:
+        print('register_opaque_type hoist patch: not needed (may be fixed upstream)')
+PYEOF
+
 EXPOSE 8000
