@@ -168,12 +168,12 @@ RUN --mount=type=bind,from=flashinfer-builder,source=/workspace/wheels,target=/m
     --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
     uv pip install /mount/wheels/*.whl
 
-# ---- Install vLLM nightly (cu130 / aarch64) ----
+# ---- Install vLLM (PyPI stable release / aarch64) ----
 # --no-deps to protect NVIDIA custom PyTorch and custom FlashInfer from overwrite
-ARG VLLM_VERSION="vllm==0.20.1rc1.dev152+gc3ad791e1"
+# v0.20.1: official stable release (2026-05-04), aarch64 wheel available on PyPI
+ARG VLLM_VERSION="vllm==0.20.1"
 RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
     pip install "${VLLM_VERSION}" \
-      --index-url https://wheels.vllm.ai/nightly/cu130 \
       --no-deps --quiet
 
 # ---- vLLM dependencies (auto-resolved, excluding NVIDIA base) ----
