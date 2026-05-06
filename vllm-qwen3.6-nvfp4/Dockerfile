@@ -22,7 +22,7 @@ ARG BUILD_JOBS=16
 # =========================================================================
 # STAGE 1: FlashInfer Builder (SM121 / GB10 Blackwell 専用)
 # =========================================================================
-FROM nvcr.io/nvidia/pytorch:26.04-py3 AS flashinfer-builder
+FROM nvcr.io/nvidia/pytorch:26.03-py3 AS flashinfer-builder
 
 ARG BUILD_JOBS
 ENV MAX_JOBS=${BUILD_JOBS}
@@ -127,7 +127,7 @@ RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
 # =========================================================================
 # STAGE 2: Runner
 # =========================================================================
-FROM nvcr.io/nvidia/pytorch:26.04-py3 AS runner
+FROM nvcr.io/nvidia/pytorch:26.03-py3 AS runner
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
@@ -213,7 +213,7 @@ RUN cd / && \
 RUN uv pip uninstall triton-kernels 2>/dev/null || true
 
 # ---- Fix: vLLM split_module tuple_return version check bug ----
-# PyTorch 2.12.0a0+0291f96 (26.04-py3) triggers the tuple_return path
+# PyTorch 2.11.x (26.03-py3) does NOT trigger the tuple_return path, but patch kept for safety
 # but split_module doesn't support it yet in older nightly builds.
 # Use runtime introspection instead of version string comparison.
 # NOTE: Uses heredoc (python3 -) to avoid Dockerfile multi-line RUN parse errors.
