@@ -212,20 +212,26 @@ RUN cd / && \
 # Remove incompatible triton-kernels if present
 RUN uv pip uninstall triton-kernels 2>/dev/null || true
 
-# ---- Fix: vLLM 0.20.1 split_module tuple_return version check bug ----
+# ---- Fix: vLLM split_module tuple_return version check bug ----
 # PyTorch 2.12.0a0+0291f96 (26.04-py3) triggers the tuple_return path
-# but split_module doesn't support it yet in this nightly build.
+# but split_module doesn't support it yet in older nightly builds.
 # Use runtime introspection instead of version string comparison.
-RUN python3 -c "
+# NOTE: Uses heredoc (python3 -) to avoid Dockerfile multi-line RUN parse errors.
+RUN python3 - <<'PYEOF'
 f = '/usr/local/lib/python3.12/dist-packages/vllm/compilation/backends.py'
-txt = open(f).read()
-old = 'has_tuple_return = is_torch_equal_or_newer(\"2.12.0.dev\")'
-new = 'import inspect as _sm_insp; has_tuple_return = \"tuple_return\" in _sm_insp.signature(__import__(\"torch\").fx.passes.split_module.split_module).parameters'
-if old in txt:
-    open(f, 'w').write(txt.replace(old, new))
-    print('split_module tuple_return patch: applied')
+import os
+if not os.path.exists(f):
+    print('split_module tuple_return patch: file not found, skipping')
 else:
-    print('split_module tuple_return patch: not needed (may be fixed upstream)')
-"
+    txt = open(f).read()
+    old = 'has_tuple_return = is_torch_equal_or_newer("2.12.0.dev")'
+    new = ('import inspect as _sm_insp; has_tuple_return = "tuple_return" in '
+           '_sm_insp.signature(__import__("torch").fx.passes.split_module.split_module).parameters')
+    if old in txt:
+        open(f, 'w').write(txt.replace(old, new))
+        print('split_module tuple_return patch: applied')
+    else:
+        print('split_module tuple_return patch: not needed (may be fixed upstream)')
+PYEOF
 
 EXPOSE 8000
