@@ -22,7 +22,7 @@ ARG BUILD_JOBS=16
 # =========================================================================
 # STAGE 1: FlashInfer Builder (SM121 / GB10 Blackwell 専用)
 # =========================================================================
-FROM nvcr.io/nvidia/pytorch:26.03-py3 AS flashinfer-builder
+FROM nvcr.io/nvidia/pytorch:26.04-py3 AS flashinfer-builder
 
 ARG BUILD_JOBS
 ENV MAX_JOBS=${BUILD_JOBS}
@@ -127,7 +127,7 @@ RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
 # =========================================================================
 # STAGE 2: Runner
 # =========================================================================
-FROM nvcr.io/nvidia/pytorch:26.03-py3 AS runner
+FROM nvcr.io/nvidia/pytorch:26.04-py3 AS runner
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
