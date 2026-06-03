@@ -14,6 +14,7 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | [**env-docs**](./env-docs/) | DGX Sparkの環境情報を構造化管理するテンプレート。Claude Codeのスラッシュコマンドで自然言語から自動同期 | Markdown, Claude Code |
 | [**aiagent-mission-ctrl**](./aiagent-mission-ctrl/) | マルチ Claude エージェント管制システム。アクティビティ宣言・Kanban・インフラ監視・作業記録（Git 自動コミット）を REST API + WebSocket で提供。29 エンドポイント | FastAPI, Redis, WebSocket, Claude Code |
 | [**claude-sdlc-skills**](./claude-sdlc-skills/) | Claude Code に SDLC（仕様→設計→TDD→レビュー→デプロイ）の規律を強制するスキル・エージェント・フックのセット。破壊的操作（DROP/TRUNCATE、WHERE 句なし DELETE、rm -rf /、main への force push、sudo）を物理ブロック | Claude Code (Skills / Subagents / PreToolUse Hooks), Bash, jq |
+| [**dgx-update-check**](./dgx-update-check/) | DGX Spark のシステムアップデートを、ブラウザ・ダッシュボードのボタンを押す **前に**「何が来ているか」を **副作用ゼロ・read-only** で覗き見るスキル。`nvidia-spark-ota-check` で DGX OTA 世代、`apt-get -s full-upgrade` で Ubuntu 標準 apt 更新を取得し、リリースノートと CVE をネット調査して提示。`apt update` も .deb DL もサービス操作も行わない（allowlist で構造的に担保） | Claude Code Skill, Bash, Python (stdlib), jq |
 
 ## 共通の前提環境
 
@@ -30,6 +31,7 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | プロジェクト | コードのライセンス | 注意事項 |
 |---|---|---|
 | **claude-sdlc-skills** | [CC BY-NC-SA 4.0](./claude-sdlc-skills/LICENSE)（非商用）/ 商用は要申請 | 詳細: [LICENSE-COMMERCIAL.md](./claude-sdlc-skills/LICENSE-COMMERCIAL.md) |
+| **dgx-update-check** | [CC BY-NC-SA 4.0](./dgx-update-check/LICENSE)（非商用）/ 商用は要申請 | 正本は [claude-skills/dgx-update-check](https://github.com/nob-git-dev/claude-skills/tree/main/dgx-update-check) |
 | **mineru-api** | MIT | MinerU 本体は Apache 2.0、モデルは各モデルカードのライセンスに従う |
 | **vllm-nemotron-9b-nvfp4** | MIT | **Nemotron モデルは NVIDIA Open Model License**（要確認） |
 | **vllm-qwen122b-nvfp4** | MIT（ただし Apache 2.0 コードの改変を含む） | vLLM パッチは Apache 2.0、Qwen3.5 モデルは Qwen License |
