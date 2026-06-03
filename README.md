@@ -31,7 +31,7 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | プロジェクト | コードのライセンス | 注意事項 |
 |---|---|---|
 | **claude-sdlc-skills** | [CC BY-NC-SA 4.0](./claude-sdlc-skills/LICENSE)（非商用）/ 商用は要申請 | 詳細: [LICENSE-COMMERCIAL.md](./claude-sdlc-skills/LICENSE-COMMERCIAL.md) |
-| **dgx-update-check** | [CC BY-NC-SA 4.0](./dgx-update-check/LICENSE)（非商用）/ 商用は要申請 | 正本は [claude-skills/dgx-update-check](https://github.com/nob-git-dev/claude-skills/tree/main/dgx-update-check) |
+| **dgx-update-check** | [CC BY-NC-SA 4.0](./dgx-update-check/LICENSE)（非商用）/ 商用は要申請 | — |
 | **mineru-api** | MIT | MinerU 本体は Apache 2.0、モデルは各モデルカードのライセンスに従う |
 | **vllm-nemotron-9b-nvfp4** | MIT | **Nemotron モデルは NVIDIA Open Model License**（要確認） |
 | **vllm-qwen122b-nvfp4** | MIT（ただし Apache 2.0 コードの改変を含む） | vLLM パッチは Apache 2.0、Qwen3.5 モデルは Qwen License |

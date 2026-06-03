@@ -1,12 +1,5 @@
 # dgx-update-check
 
-> 📌 **このディレクトリは参照用コピーです**
->
-> 正本（メンテナンスはこちらで行います）: **[https://github.com/nob-git-dev/claude-skills/tree/main/dgx-update-check](https://github.com/nob-git-dev/claude-skills/tree/main/dgx-update-check)**
->
-> このリポジトリ（dgx_spark_code）は DGX Spark 上で動かすコードの保管庫であり、本ディレクトリは「DGX Spark 用に作ったスキル」の参照用として置いています。
-> （`claude-sdlc-skills/` も同様に claude-skills/sdlc-skills/ へ移転済み・参照コピー）
-
 DGX Spark（GX10）のシステムアップデートを、ブラウザ・ダッシュボードのアップデートボタンを押す **前に**
 「今なにが来ているのか」をコマンドで覗き見るための Claude スキルです。
 UNIX の `apt update` で「これから来るもの」を確認する体験を、DGX の OTA 文脈で **副作用ゼロ** に再現します。
@@ -81,5 +74,4 @@ ARM64（`aarch64`）/ Ubuntu 24.04（noble）。`nvidia-spark-ota-check` が存�
 ## ライセンス
 
 CC BY-NC-SA 4.0（個人・研究・非営利は無償／営利は要申請）。詳細は [LICENSE](LICENSE) を参照してください。
-本スキルは [claude-skills](https://github.com/nob-git-dev/claude-skills) リポジトリの一部であり、
-sdlc-skills / learning-skills と同じライセンス方針です。
+本スキルは [dgx_spark_code](https://github.com/nob-git-dev/dgx_spark_code) リポジトリの DGX Spark 用プロジェクトの1つです。
