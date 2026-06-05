@@ -1,5 +1,7 @@
 # DGX Spark Code
 
+> 全体ポートフォリオ: [AI Agent Engineering Portfolio](https://github.com/nob-git-dev/ai-agent-portfolio)
+
 NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェクトのコレクション。
 すべてDockerコンテナとして動作し、ARM64 (aarch64) ネイティブで構成されています。
 
