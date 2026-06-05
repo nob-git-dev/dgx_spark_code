@@ -3,6 +3,19 @@
 NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェクトのコレクション。
 すべてDockerコンテナとして動作し、ARM64 (aarch64) ネイティブで構成されています。
 
+## Portfolio Snapshot
+
+このリポジトリは、DGX Spark / Grace Blackwell / ARM64 環境で、
+**ローカル LLM 推論・量子化・音声認識・マルチエージェント管制**を実装・検証するための実機向けプロジェクト集です。
+
+| 観点 | 内容 |
+|---|---|
+| **Problem** | DGX Spark のような新しい AI ワークステーション環境では、ARM64、Blackwell、CUDA、vLLM、NVFP4、統合メモリなどの制約により、既存手順がそのまま動かない。 |
+| **Built** | NVFP4 量子化済み LLM serving、vLLM custom build、ReAct 型ローカルエージェント、Whisper 文字起こし API / UI / CLI、マルチ Claude エージェント管制 API、DGX アップデート事前確認スキル。 |
+| **Technical Focus** | vLLM / ModelOpt / NVFP4、Docker / Docker Compose、FastAPI / WebSocket / Redis、ARM64 Linux、GPU memory-aware service design、local-first AI infrastructure。 |
+| **Evidence** | Nemotron 9B NVFP4 の BF16 比 2.3 倍高速・GPU メモリ効率 4.5 倍改善、aiagent-mission-ctrl の 29 エンドポイント、read-only / sudo なし / 副作用ゼロを機械検証する dgx-update-check。 |
+| **Maturity** | DGX Spark 実機での検証・運用を前提とした個人 AI インフラ実装群。 |
+
 ## プロジェクト一覧
 
 | プロジェクト | 説明 | 技術スタック |
