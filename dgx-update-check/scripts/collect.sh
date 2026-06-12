@@ -46,18 +46,32 @@ fi
 
 # emit_json builds the final document from environment variables using python3 (robust escaping).
 # All *_RAW vars hold raw command output (or empty). PRE_* hold preflight scalars.
+#
+# Large variables (APTCACHE_RAW, UPGRADABLE_RAW, FULLUPG_RAW, ERRORS_RAW) are written
+# to a temporary directory and passed via DGXUC_DATA_DIR to avoid the Linux kernel's
+# MAX_ARG_STRLEN limit (~128KB per env var). Small scalars are still passed as env vars.
 emit_json() {
+  local _tmpdir
+  _tmpdir="$(mktemp -d)"
+  # Write large payloads to files so we stay under MAX_ARG_STRLEN
+  printf '%s' "${APTCACHE_RAW:-}"   > "$_tmpdir/aptcache_raw"
+  printf '%s' "${UPGRADABLE_RAW:-}" > "$_tmpdir/upgradable_raw"
+  printf '%s' "${FULLUPG_RAW:-}"    > "$_tmpdir/fullupg_raw"
+  printf '%s' "${ERRORS_RAW:-}"     > "$_tmpdir/errors_raw"
+  # Small scalars remain as env vars (each well under 128KB)
   PRE_OK="$PRE_OK" PRE_REASON="$PRE_REASON" ARCH="$ARCH" CODENAME="$CODENAME" \
   VERSION_ID_VAL="$VERSION_ID_VAL" OTA_TOOL_PATH="$OTA_TOOL_PATH" \
   OTA_AVAIL_RAW="${OTA_AVAIL_RAW:-}" OTA_INSTALLED_RAW="${OTA_INSTALLED_RAW:-}" \
   OTA_TORN_RAW="${OTA_TORN_RAW:-}" OTA_VERSIONS_RAW="${OTA_VERSIONS_RAW:-}" \
-  UPGRADABLE_RAW="${UPGRADABLE_RAW:-}" FULLUPG_RAW="${FULLUPG_RAW:-}" \
-  APTCACHE_RAW="${APTCACHE_RAW:-}" MEM_RAW="${MEM_RAW:-}" \
+  MEM_RAW="${MEM_RAW:-}" \
   IDX_MTIME="${IDX_MTIME:-}" IDX_FILE="${IDX_FILE:-}" \
   LISTS_SNAPSHOT="${LISTS_SNAPSHOT:-}" SVC_RAW="${SVC_RAW:-}" \
   DGXUC_DASHBOARD_SERVICES="$DGXUC_DASHBOARD_SERVICES" \
-  ERRORS_RAW="${ERRORS_RAW:-}" \
+  DGXUC_DATA_DIR="$_tmpdir" \
   python3 "$SCRIPT_DIR/build_json.py"
+  local _rc=$?
+  rm -rf "$_tmpdir"
+  return $_rc
 }
 
 # fail-fast on preflight failure: do NOT touch apt layer (ADR-5 / AC1)

@@ -15,6 +15,23 @@ def env(name, default=""):
     return os.environ.get(name, default)
 
 
+# Large payloads are written to a temp directory by collect.sh to stay under the
+# Linux kernel MAX_ARG_STRLEN limit (~128KB per env var). Read from files when available.
+_data_dir = os.environ.get("DGXUC_DATA_DIR", "")
+
+
+def env_or_file(env_name, filename, default=""):
+    """Read a large payload: try the temp file first, fall back to env var (legacy/test)."""
+    if _data_dir:
+        path = os.path.join(_data_dir, filename)
+        try:
+            with open(path) as f:
+                return f.read()
+        except OSError:
+            pass
+    return os.environ.get(env_name, default)
+
+
 def try_json(raw):
     raw = (raw or "").strip()
     if not raw:
@@ -62,7 +79,7 @@ doc = {
 }
 
 # errors list (newline-separated)
-errors = [e for e in (env("ERRORS_RAW", "").splitlines()) if e.strip()]
+errors = [e for e in (env_or_file("ERRORS_RAW", "errors_raw", "").splitlines()) if e.strip()]
 doc["errors"] = errors
 
 # On preflight failure: fail-fast. Leave ota/apt/estimate as null so downstream can see
@@ -84,9 +101,9 @@ doc["ota"] = {
 }
 
 # ----- layer 2: apt parsing (AC4/AC5) -----
-upgradable_raw = env("UPGRADABLE_RAW", "")
-fullupg_raw = env("FULLUPG_RAW", "")
-aptcache_raw = env("APTCACHE_RAW", "")
+upgradable_raw = env_or_file("UPGRADABLE_RAW", "upgradable_raw", "")
+fullupg_raw    = env_or_file("FULLUPG_RAW",    "fullupg_raw",    "")
+aptcache_raw   = env_or_file("APTCACHE_RAW",   "aptcache_raw",   "")
 
 # (a) parse `apt list --upgradable` -> name -> {ver_to, repos, ver_from}
 #     line: name/repo1,repo2 newver arch [upgradable from: oldver]
