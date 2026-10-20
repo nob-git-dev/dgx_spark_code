@@ -1,0 +1,20 @@
+# Jev-style decision API (/v1/systemone) on top of the Gemma 4 container from ollama/.
+# Uses the host network, so Ollama (127.0.0.1:11434) and this API (127.0.0.1:9931) have the
+# same addresses inside and outside the container. Nothing is installed on the host.
+#
+#   docker compose up -d --build
+#   curl -s localhost:9931/health
+services:
+  jev:
+    build: .
+    image: gemma-jev:latest
+    container_name: gemma-jev
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - JEV_HOST=${JEV_HOST:-127.0.0.1}   # localhost only; set to 0.0.0.0 to expose on LAN
+      - JEV_PORT=${JEV_PORT:-9931}
+      - JEV_BACKEND_URL=${JEV_BACKEND_URL:-http://127.0.0.1:11434}
+      - JEV_MODEL=${JEV_MODEL:-}          # default: first installed gemma4* model
+      - JEV_TEMPERATURE=${JEV_TEMPERATURE:-1.0}
+      - JEV_PARALLEL=${JEV_PARALLEL:-4}

@@ -1,0 +1,23 @@
+# Gemma 4 on ASUS Ascent GX10 (GB10 / aarch64), fully contained in Docker.
+# Models live in the named volume "ollama-models"; nothing is installed on the host.
+services:
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION:-latest}   # Gemma 4 needs >= 0.20.0
+    container_name: gemma4-ollama
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"   # localhost only; change to "11434:11434" to expose on LAN
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=30m
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama-models:

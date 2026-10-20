@@ -1,0 +1,702 @@
+[
+ {
+  "id": "mmlu-01",
+  "source": "mmlu",
+  "question": "What is the capital city of Australia?",
+  "context": null,
+  "choices": [
+   "Sydney",
+   "Melbourne",
+   "Canberra",
+   "Perth"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-02",
+  "source": "mmlu",
+  "question": "Which gas makes up most of Earth's atmosphere?",
+  "context": null,
+  "choices": [
+   "Oxygen",
+   "Nitrogen",
+   "Carbon dioxide",
+   "Argon"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-03",
+  "source": "mmlu",
+  "question": "In computing, what does CPU stand for?",
+  "context": null,
+  "choices": [
+   "Central Processing Unit",
+   "Computer Personal Unit",
+   "Central Program Utility",
+   "Core Processing Unit"
+  ],
+  "answer_idx": 0,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-04",
+  "source": "mmlu",
+  "question": "What is the derivative of x^3 with respect to x?",
+  "context": null,
+  "choices": [
+   "x^2",
+   "3x^2",
+   "3x",
+   "x^3/3"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-05",
+  "source": "mmlu",
+  "question": "Which data structure removes elements in first-in, first-out order?",
+  "context": null,
+  "choices": [
+   "Stack",
+   "Queue",
+   "Tree",
+   "Hash map"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-06",
+  "source": "mmlu",
+  "question": "What is 15% of 200?",
+  "context": null,
+  "choices": [
+   "25",
+   "30",
+   "35",
+   "40"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-07",
+  "source": "mmlu",
+  "question": "Who wrote 'Pride and Prejudice'?",
+  "context": null,
+  "choices": [
+   "Charlotte Brontë",
+   "Jane Austen",
+   "Mary Shelley",
+   "George Eliot"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-08",
+  "source": "mmlu",
+  "question": "What is the SI unit of electric current?",
+  "context": null,
+  "choices": [
+   "Volt",
+   "Ohm",
+   "Ampere",
+   "Watt"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-09",
+  "source": "mmlu",
+  "question": "Which HTTP status code means 'Not Found'?",
+  "context": null,
+  "choices": [
+   "200",
+   "301",
+   "404",
+   "500"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "mmlu-10",
+  "source": "mmlu",
+  "question": "日本の国会は何院制か。",
+  "context": null,
+  "choices": [
+   "一院制",
+   "二院制",
+   "三院制",
+   "四院制"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "arc-01",
+  "source": "arc_easy",
+  "question": "Which process do plants use to make food from sunlight?",
+  "context": null,
+  "choices": [
+   "Respiration",
+   "Photosynthesis",
+   "Fermentation",
+   "Digestion"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "arc-02",
+  "source": "arc_easy",
+  "question": "What happens to the boiling point of water when air pressure decreases, such as high on a mountain?",
+  "context": null,
+  "choices": [
+   "It increases",
+   "It decreases",
+   "It stays the same",
+   "Water can no longer boil"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "arc-03",
+  "source": "arc_easy",
+  "question": "Which of these is a renewable energy source?",
+  "context": null,
+  "choices": [
+   "Coal",
+   "Natural gas",
+   "Wind",
+   "Oil"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "arc-04",
+  "source": "arc_challenge",
+  "question": "An object floats in water because",
+  "context": null,
+  "choices": [
+   "it is heavier than water",
+   "its density is lower than that of water",
+   "it has no mass",
+   "water pushes it downward"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "arc-05",
+  "source": "arc_challenge",
+  "question": "A student rubs a balloon on a sweater and the balloon then sticks to a wall. Which force is responsible?",
+  "context": null,
+  "choices": [
+   "Gravity",
+   "Magnetism",
+   "Static electricity",
+   "Friction"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "arc-06",
+  "source": "arc_challenge",
+  "question": "Which of these changes is a chemical change?",
+  "context": null,
+  "choices": [
+   "Ice melting",
+   "Paper burning",
+   "Glass breaking",
+   "Water evaporating"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "jcqa-01",
+  "source": "jcommonsenseqa",
+  "question": "雨が降りそうなとき、出かける前に持っていくものは？",
+  "context": null,
+  "choices": [
+   "サングラス",
+   "傘",
+   "スキー板",
+   "扇風機",
+   "ハンモック"
+  ],
+  "answer_idx": 1,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-02",
+  "source": "jcommonsenseqa",
+  "question": "朝起きてすぐ歯を磨くときに使うものは？",
+  "context": null,
+  "choices": [
+   "フライパン",
+   "歯ブラシ",
+   "ドライバー",
+   "のこぎり",
+   "定規"
+  ],
+  "answer_idx": 1,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-03",
+  "source": "jcommonsenseqa",
+  "question": "図書館で本を借りるときに必要なものは？",
+  "context": null,
+  "choices": [
+   "釣り竿",
+   "利用者カード",
+   "バット",
+   "ヘルメット",
+   "ロープ"
+  ],
+  "answer_idx": 1,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-04",
+  "source": "jcommonsenseqa",
+  "question": "お湯を沸かすのに使う台所の道具は？",
+  "context": null,
+  "choices": [
+   "やかん",
+   "ほうき",
+   "枕",
+   "ハサミ",
+   "傘"
+  ],
+  "answer_idx": 0,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-05",
+  "source": "jcommonsenseqa",
+  "question": "手紙を送るときに封筒に貼るものは？",
+  "context": null,
+  "choices": [
+   "シール",
+   "切手",
+   "絆創膏",
+   "テープ",
+   "付箋"
+  ],
+  "answer_idx": 1,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-06",
+  "source": "jcommonsenseqa",
+  "question": "寒い冬の日に外出するときに着るものは？",
+  "context": null,
+  "choices": [
+   "水着",
+   "コート",
+   "浴衣",
+   "Tシャツ",
+   "サンダル"
+  ],
+  "answer_idx": 1,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-07",
+  "source": "jcommonsenseqa",
+  "question": "夜、部屋を明るくするためにつけるものは？",
+  "context": null,
+  "choices": [
+   "冷蔵庫",
+   "電気",
+   "洗濯機",
+   "掃除機",
+   "換気扇"
+  ],
+  "answer_idx": 1,
+  "n_choices": 5
+ },
+ {
+  "id": "jcqa-08",
+  "source": "jcommonsenseqa",
+  "question": "電車に乗るために駅で買うものは？",
+  "context": null,
+  "choices": [
+   "切符",
+   "新聞",
+   "パン",
+   "花",
+   "靴"
+  ],
+  "answer_idx": 0,
+  "n_choices": 5
+ },
+ {
+  "id": "boolq-01",
+  "source": "boolq",
+  "question": "Is the Tokyo Skytree taller than 600 metres?",
+  "context": "The Tokyo Skytree is a broadcasting and observation tower in Sumida, Tokyo. It became the tallest structure in Japan in 2010 and reached its full height of 634 metres in March 2011.",
+  "choices": [
+   "No",
+   "Yes"
+  ],
+  "answer_idx": 1,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-02",
+  "source": "boolq",
+  "question": "Do honey bees perform the waggle dance outside the hive?",
+  "context": "Honey bees communicate the location of food sources through a series of movements known as the waggle dance. The dance is performed inside the hive on the vertical surface of the comb.",
+  "choices": [
+   "No",
+   "Yes"
+  ],
+  "answer_idx": 0,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-03",
+  "source": "boolq",
+  "question": "Does Python check variable types at compile time?",
+  "context": "Python is a dynamically typed language: variable types are checked at run time, and a variable may be rebound to objects of different types.",
+  "choices": [
+   "No",
+   "Yes"
+  ],
+  "answer_idx": 0,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-04",
+  "source": "boolq",
+  "question": "Is the Great Barrier Reef located off the coast of Australia?",
+  "context": "The Great Barrier Reef is located in the Coral Sea, off the coast of Queensland, Australia. It is the world's largest coral reef system.",
+  "choices": [
+   "No",
+   "Yes"
+  ],
+  "answer_idx": 1,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-05",
+  "source": "boolq",
+  "question": "富士山は1800年以降に噴火したことがあるか？",
+  "context": "富士山は静岡県と山梨県にまたがる活火山で、標高3776メートルの日本最高峰である。記録に残る最後の噴火は1707年の宝永大噴火である。",
+  "choices": [
+   "いいえ",
+   "はい"
+  ],
+  "answer_idx": 0,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-06",
+  "source": "boolq",
+  "question": "東海道新幹線は1964年に開業したか？",
+  "context": "東海道新幹線は東京駅と新大阪駅を結ぶ高速鉄道で、1964年10月1日に開業した。",
+  "choices": [
+   "いいえ",
+   "はい"
+  ],
+  "answer_idx": 1,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-07",
+  "source": "boolq",
+  "question": "Was the year 1900 a leap year?",
+  "context": "A leap year occurs every four years, except for years that are divisible by 100 but not by 400. The year 1900 was therefore not a leap year, while 2000 was.",
+  "choices": [
+   "No",
+   "Yes"
+  ],
+  "answer_idx": 0,
+  "n_choices": 2
+ },
+ {
+  "id": "boolq-08",
+  "source": "boolq",
+  "question": "Does an octopus have more than one heart?",
+  "context": "Octopuses have three hearts: two pump blood through the gills, while the third pumps it to the rest of the body.",
+  "choices": [
+   "No",
+   "Yes"
+  ],
+  "answer_idx": 1,
+  "n_choices": 2
+ },
+ {
+  "id": "mx-01",
+  "source": "motocross",
+  "question": "A rider's lap times in a moto were 2:01.4, 1:58.9, 2:03.2 and 1:59.7. Which lap was the fastest?",
+  "context": null,
+  "choices": [
+   "Lap 1",
+   "Lap 2",
+   "Lap 3",
+   "Lap 4"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mx-02",
+  "source": "motocross",
+  "question": "In motocross, what does the term 'holeshot' mean?",
+  "context": null,
+  "choices": [
+   "Crashing in the first corner",
+   "Being first into the first corner after the start",
+   "A jump with a hole in the landing",
+   "Pulling out of the race"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "mx-03",
+  "source": "motocross",
+  "question": "Who won the overall?",
+  "context": "Moto 1 results: Rider 5 finished 2nd, Rider 12 finished 1st, Rider 7 finished 3rd. Moto 2 results: Rider 5 finished 1st, Rider 12 finished 3rd, Rider 7 finished 2nd. The overall is decided by the sum of the finishing positions, lower is better, ties broken by the second moto.",
+  "choices": [
+   "Rider 5",
+   "Rider 12",
+   "Rider 7",
+   "It was a tie"
+  ],
+  "answer_idx": 0,
+  "n_choices": 4
+ },
+ {
+  "id": "mx-04",
+  "source": "motocross",
+  "question": "モトクロスのレースで、スタート直後の第1コーナーに最初に進入することを何と呼ぶか。",
+  "context": null,
+  "choices": [
+   "ホールショット",
+   "ウィップ",
+   "スクラブ",
+   "ケースする"
+  ],
+  "answer_idx": 0,
+  "n_choices": 4
+ },
+ {
+  "id": "mx-05",
+  "source": "motocross",
+  "question": "According to the report, which section changed from a triple to a double?",
+  "context": "Track report: the whoops section has deepened after the morning rain, the start straight is dry, and the uphill triple is now a double because the third jump face was flattened by the dozer.",
+  "choices": [
+   "The whoops",
+   "The start straight",
+   "The uphill jump",
+   "The finish line"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "mx-06",
+  "source": "motocross",
+  "question": "A 4-stroke 450cc and a 2-stroke 250cc motocross bike race in the same class under most rulebooks. What is the main reason?",
+  "context": null,
+  "choices": [
+   "A 4-stroke makes less power per cc than a 2-stroke, so a larger displacement is allowed",
+   "2-strokes are heavier",
+   "4-strokes have no gearbox",
+   "Both make identical power per cc"
+  ],
+  "answer_idx": 0,
+  "n_choices": 4
+ },
+ {
+  "id": "score-01",
+  "source": "score_sample",
+  "question": "How positive is this review?",
+  "context": "This product is amazing, it exceeded all my expectations and I would buy it again in a heartbeat.",
+  "levels": [
+   "very negative",
+   "negative",
+   "neutral",
+   "positive",
+   "very positive"
+  ],
+  "answer_idx": 4,
+  "n_choices": 5
+ },
+ {
+  "id": "score-02",
+  "source": "score_sample",
+  "question": "How positive is this review?",
+  "context": "Terrible. It broke on the first day and customer support never replied.",
+  "levels": [
+   "very negative",
+   "negative",
+   "neutral",
+   "positive",
+   "very positive"
+  ],
+  "answer_idx": 0,
+  "n_choices": 5
+ },
+ {
+  "id": "score-03",
+  "source": "score_sample",
+  "question": "How positive is this review?",
+  "context": "Not great, not terrible. It does the job.",
+  "levels": [
+   "very negative",
+   "negative",
+   "neutral",
+   "positive",
+   "very positive"
+  ],
+  "answer_idx": 2,
+  "n_choices": 5
+ },
+ {
+  "id": "score-04",
+  "source": "score_sample",
+  "question": "How positive is this review?",
+  "context": "最高です。期待以上で、友人にも勧めました。",
+  "levels": [
+   "very negative",
+   "negative",
+   "neutral",
+   "positive",
+   "very positive"
+  ],
+  "answer_idx": 4,
+  "n_choices": 5
+ },
+ {
+  "id": "score-05",
+  "source": "score_sample",
+  "question": "How positive is this review?",
+  "context": "ひどい。初日に壊れて、問い合わせても返事がない。",
+  "levels": [
+   "very negative",
+   "negative",
+   "neutral",
+   "positive",
+   "very positive"
+  ],
+  "answer_idx": 0,
+  "n_choices": 5
+ },
+ {
+  "id": "score-06",
+  "source": "score_sample",
+  "question": "How positive is this review?",
+  "context": "普通です。良くも悪くもありません。",
+  "levels": [
+   "very negative",
+   "negative",
+   "neutral",
+   "positive",
+   "very positive"
+  ],
+  "answer_idx": 2,
+  "n_choices": 5
+ },
+ {
+  "id": "score-07",
+  "source": "score_sample",
+  "question": "How urgent is this?",
+  "context": "Customer message: My site has been completely down for an hour and we are losing orders every minute.",
+  "levels": [
+   "can wait",
+   "this week",
+   "today",
+   "right now"
+  ],
+  "answer_idx": 3,
+  "n_choices": 4
+ },
+ {
+  "id": "score-08",
+  "source": "score_sample",
+  "question": "How urgent is this?",
+  "context": "Customer message: Whenever you have a moment, could you tell me if you plan to add a dark mode someday?",
+  "levels": [
+   "can wait",
+   "this week",
+   "today",
+   "right now"
+  ],
+  "answer_idx": 0,
+  "n_choices": 4
+ },
+ {
+  "id": "score-09",
+  "source": "score_sample",
+  "question": "How urgent is this?",
+  "context": "Customer message: The invoice PDF from last month shows the wrong company address, please fix it before our accounting closes on Friday.",
+  "levels": [
+   "can wait",
+   "this week",
+   "today",
+   "right now"
+  ],
+  "answer_idx": 1,
+  "n_choices": 4
+ },
+ {
+  "id": "score-10",
+  "source": "score_sample",
+  "question": "How urgent is this?",
+  "context": "Customer message: I can't log in and I have a client demo this afternoon.",
+  "levels": [
+   "can wait",
+   "this week",
+   "today",
+   "right now"
+  ],
+  "answer_idx": 2,
+  "n_choices": 4
+ },
+ {
+  "id": "score-11",
+  "source": "score_sample",
+  "question": "How difficult is this programming task?",
+  "context": "Task: print the text 'Hello, world'.",
+  "levels": [
+   "trivial",
+   "easy",
+   "medium",
+   "hard",
+   "very hard"
+  ],
+  "answer_idx": 0,
+  "n_choices": 5
+ },
+ {
+  "id": "score-12",
+  "source": "score_sample",
+  "question": "How difficult is this programming task?",
+  "context": "Task: implement a distributed consensus protocol with leader election and log replication from scratch, with fault injection tests.",
+  "levels": [
+   "trivial",
+   "easy",
+   "medium",
+   "hard",
+   "very hard"
+  ],
+  "answer_idx": 4,
+  "n_choices": 5
+ }
+]

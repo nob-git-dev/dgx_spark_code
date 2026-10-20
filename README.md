@@ -30,6 +30,7 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | [**aiagent-mission-ctrl**](./aiagent-mission-ctrl/) | マルチ Claude エージェント管制システム。アクティビティ宣言・Kanban・インフラ監視・作業記録（Git 自動コミット）を REST API + WebSocket で提供。29 エンドポイント | FastAPI, Redis, WebSocket, Claude Code |
 | [**claude-sdlc-skills**](./claude-sdlc-skills/) | Claude Code に SDLC（仕様→設計→TDD→レビュー→デプロイ）の規律を強制するスキル・エージェント・フックのセット。破壊的操作（DROP/TRUNCATE、WHERE 句なし DELETE、rm -rf /、main への force push、sudo）を物理ブロック | Claude Code (Skills / Subagents / PreToolUse Hooks), Bash, jq |
 | [**dgx-update-check**](./dgx-update-check/) | DGX Spark のシステムアップデートを、ブラウザ・ダッシュボードのボタンを押す **前に**「何が来ているか」を **副作用ゼロ・read-only** で覗き見るスキル。`nvidia-spark-ota-check` で DGX OTA 世代、`apt-get -s full-upgrade` で Ubuntu 標準 apt 更新を取得し、リリースノートと CVE をネット調査して提示。`apt update` も .deb DL もサービス操作も行わない（allowlist で構造的に担保） | Claude Code Skill, Bash, Python (stdlib), jq |
+| [**gemma-jev**](./gemma-jev/) | Gemma 4 を [Jev](https://docs.typesafe.ai/)（TypeSafe の判断専用モデル）のように使う決定 API。llama.cpp / Ollama と同じ `POST /v1/systemone`（choice / score / noul）を Ollama 上の Gemma 4 で提供。ラベル 1 トークンの logprobs から選択肢の確率を読む方式で学習不要。CLI、較正ベンチ（NLL / Brier / ECE、温度スイープ）、Docker 同梱 | Python (stdlib), Ollama, Docker |
 
 ## 共通の前提環境
 
@@ -54,3 +55,4 @@ NVIDIA DGX Spark (Grace Blackwell GPU) 上で動作するAI関連プロジェク
 | **local-agent** | MIT | 依存ライブラリは MIT / Apache 2.0 |
 | **aiagent-mission-ctrl** | MIT | FastAPI は MIT、Redis は BSD |
 | **env-docs** | MIT | — |
+| **gemma-jev** | MIT | Gemma 4 モデルは Gemma Terms of Use に従う |
