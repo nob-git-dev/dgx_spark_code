@@ -6,6 +6,7 @@
   jev.py score  STATE "How urgent is this?" "can wait" "this week" today "right now"
   jev.py noul   STATE "Is the customer angry?"
   jev.py ask    request.json          # a raw System One request (- for stdin)
+  jev.py feedback ID route=billing angry=false urgency=2   # correct answers for a logged decision
   jev.py check                        # GET /health
 
 STATE is text, @path (the file's contents) or - (stdin). --image PATH attaches an image.
@@ -54,6 +55,18 @@ def image_data_url(path):
         return f"data:{mime};base64," + base64.b64encode(f.read()).decode()
 
 
+def parse_label(value):
+    """true/false -> bool, digits -> int (a score level), anything else -> the option name."""
+    low = value.strip().lower()
+    if low in ("true", "yes"):
+        return True
+    if low in ("false", "no"):
+        return False
+    if value.strip().isdigit():
+        return int(value)
+    return value
+
+
 def build_request(args):
     if args.command == "ask":
         src = sys.stdin if args.file == "-" else open(os.path.expanduser(args.file), encoding="utf-8")
@@ -92,11 +105,23 @@ def main(argv=None):
     p.add_argument("state"); p.add_argument("question")
     p = sub.add_parser("ask", help="send a raw System One request")
     p.add_argument("file", help="JSON file, or - for stdin")
+    p = sub.add_parser("feedback", help="attach the correct answers to a decision the server logged")
+    p.add_argument("id", help="the id returned with the decision (needs JEV_DECISION_LOG on the server)")
+    p.add_argument("labels", nargs="+", metavar="QID=LABEL",
+                   help="option name for choice, true/false for noul, level index for score")
     sub.add_parser("check", help="server and backend health")
     args = ap.parse_args(argv)
 
     if args.command == "check":
         status, data = http(args.url.rstrip("/") + "/health")
+    elif args.command == "feedback":
+        labels = {}
+        for item in args.labels:
+            qid, sep, value = item.partition("=")
+            if not sep or not qid:
+                ap.error(f"labels look like QID=LABEL, not {item!r}")
+            labels[qid] = parse_label(value)
+        status, data = http(args.url.rstrip("/") + "/v1/feedback", {"id": args.id, "labels": labels})
     else:
         body = build_request(args)
         if args.debug:

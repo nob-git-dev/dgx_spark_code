@@ -4,6 +4,7 @@
 #
 #   docker compose up -d --build
 #   curl -s localhost:9931/health
+#   python3 calibrate.py            # writes runtime/calibration.json, picked up without a restart
 services:
   jev:
     build: .
@@ -11,10 +12,16 @@ services:
     container_name: gemma-jev
     restart: unless-stopped
     network_mode: host
+    volumes:
+      - ${JEV_RUNTIME_DIR:-./runtime}:/app/runtime   # calibration.json from calibrate.py, decision log
     environment:
       - JEV_HOST=${JEV_HOST:-127.0.0.1}   # localhost only; set to 0.0.0.0 to expose on LAN
       - JEV_PORT=${JEV_PORT:-9931}
       - JEV_BACKEND_URL=${JEV_BACKEND_URL:-http://127.0.0.1:11434}
       - JEV_MODEL=${JEV_MODEL:-}          # default: first installed gemma4* model
-      - JEV_TEMPERATURE=${JEV_TEMPERATURE:-1.0}
+      - JEV_VARIANTS=${JEV_VARIANTS:-2}   # 2 = choice questions also asked with the options reversed
+      - JEV_DEBIAS=${JEV_DEBIAS:-1}       # divide by the calibrated label prior when one exists
+      - JEV_CALIBRATION=/app/runtime/calibration.json
+      - JEV_TEMPERATURE=${JEV_TEMPERATURE:-}      # empty = temperatures from the calibration file
+      - JEV_DECISION_LOG=${JEV_DECISION_LOG:-}    # e.g. /app/runtime/decisions.jsonl to enable /v1/feedback
       - JEV_PARALLEL=${JEV_PARALLEL:-4}

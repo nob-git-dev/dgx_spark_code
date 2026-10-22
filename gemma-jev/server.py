@@ -1,27 +1,42 @@
 #!/usr/bin/env python3
 """Jev-style decision API on top of Gemma 4 (Ollama on the GX10).
 
-Serves TypeSafe's System One API shape, the same one llama.cpp exposes as
+Serves TypeSafe's System One API shape, the same one llama.cpp and Ollama expose as
 `POST /v1/systemone`: a request carries a `state` and typed `questions`
 (choice / score / noul) and the answer is a probability per option, never text.
 
-Gemma 4 is a plain language model, so the trick is: ask it to answer with exactly
+Gemma 4 is a plain language model, so the readout is: ask it to answer with exactly
 one label token (A/B/C..., 0-9, Yes/No), generate a single token with logprobs
 enabled, and read the probability of every label from the `top_logprobs` of that
-first position. Nothing is fine-tuned; the probabilities are the model's own
-next-token distribution, renormalised over the labels.
+first position. Nothing is fine-tuned. On top of that raw readout the server does
+what the open decision models do after their heads:
+
+  * a choice question is also shown with its options in reverse order and the two
+    distributions are averaged, so the preference for a position cancels (the same
+    trick as llama.cpp's "lev" decision type);
+  * the probabilities are divided by a label prior that calibrate.py estimated from
+    cyclic rotations of the options (PriDe-style: the model's bias for "A" is removed);
+  * the logits are scaled by a temperature per question type that calibrate.py
+    fitted on labelled data, so the probabilities are calibrated;
+  * optionally every decision is logged with an id, and POST /v1/feedback attaches the
+    correct answers: that log is the training data for a later fine-tune.
 
 Environment (every one can also be given as a command line flag):
   JEV_HOST / JEV_PORT     bind address (default 127.0.0.1:9931)
   JEV_BACKEND_URL         Ollama or OpenAI-compatible server (default http://127.0.0.1:11434)
   JEV_MODEL               model name; unset = first installed model whose name contains "gemma4"
   JEV_API_KEY             bearer token for OpenAI-compatible servers (optional)
-  JEV_TEMPERATURE         divides the label logprobs before normalising (default 1.0;
-                          <1 sharpens, >1 flattens; tune it with bench.py)
+  JEV_VARIANTS            1 or 2 (default 2): also ask choice questions with the options reversed
+  JEV_DEBIAS              "1" (default) divides choice probabilities by the calibrated label prior
+  JEV_CALIBRATION         file written by calibrate.py (default runtime/calibration.json next to
+                          this script); reloaded whenever it changes
+  JEV_TEMPERATURE         unset (default) = the calibration file's temperatures, or 1.0 without a
+                          file; a number overrides them for every question type
+  JEV_DECISION_LOG        JSONL file; when set, decisions are logged with an id for /v1/feedback
   JEV_TOP_LOGPROBS        candidate tokens read at the first position (default 20 = Ollama's maximum)
   JEV_MAX_CTX             upper bound for Ollama's num_ctx (default 65536)
   JEV_TIMEOUT             seconds per backend call (default 300)
-  JEV_PARALLEL            questions of one request answered concurrently (default 4)
+  JEV_PARALLEL            backend calls of one request made concurrently (default 4)
   JEV_DECIMALS            rounding of the returned probabilities (default 4, like Jev)
   JEV_THINK               "0" (default) asks the backend not to think; "unset" sends nothing
 """
@@ -36,10 +51,13 @@ import time
 import unicodedata
 import urllib.error
 import urllib.request
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
+HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_CALIBRATION = os.path.join(HERE, "runtime", "calibration.json")
 CHOICE_LABELS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 SCORE_LABELS = "0123456789"
 NOUL_LABELS = ("Yes", "No")
@@ -56,6 +74,10 @@ SYSTEM_PROMPT = (
 
 def env(name, default=None):
     return os.environ.get(name, default)
+
+
+def _now():
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 class BadRequest(ValueError):
@@ -299,7 +321,7 @@ def as_text(value):
 def parse_question(qid, q):
     """Validate one question and return (type, instructions, options).
 
-    options is a list of (name, description) in label order; description may be None.
+    options is a list of (name, description) in the caller's order; description may be None.
     """
     if not isinstance(q, dict):
         raise BadRequest(f"question '{qid}' must be an object")
@@ -335,6 +357,7 @@ def parse_question(qid, q):
 
 
 def build_prompt(qtype, instructions, options, state_text, n_images=0):
+    """`options` are shown in the order given: the caller decides the order (variants)."""
     lines = []
     if n_images:
         lines.append(f"The {n_images} image(s) above are part of the STATE.")
@@ -393,17 +416,28 @@ def noul_matcher(token):
     return None
 
 
+def labels_for(qtype, n):
+    """The label tokens of a question, in prompt order, and the matcher that recognises them."""
+    if qtype == "choice":
+        return list(CHOICE_LABELS[:n]), choice_matcher(n)
+    if qtype == "score":
+        return list(SCORE_LABELS[:n]), score_matcher(n)
+    return list(NOUL_LABELS), noul_matcher
+
+
 def _logaddexp(a, b):
     m = max(a, b)
     return m + math.log(math.exp(a - m) + math.exp(b - m))
 
 
-def label_distribution(candidates, labels, match, temperature=1.0):
+def label_distribution(candidates, labels, match, temperature=1.0, prior=None):
     """Turn first-token candidates [(token, logprob)] into a distribution over labels.
 
     Token variants of the same label ("A", " a", "**A") are merged. Labels missing from
     the top-k get a floor: no more than the smallest listed candidate, and no more than
-    their share of the probability mass the top-k did not cover. Returns (probs, meta).
+    their share of the probability mass the top-k did not cover. `prior` (one value per
+    label, in prompt order) is divided out before the temperature is applied.
+    Returns (probs in label order, meta).
     """
     merged, listed = {}, 0.0
     for tok, lp in candidates:
@@ -424,12 +458,38 @@ def label_distribution(candidates, labels, match, temperature=1.0):
         for l in missing:
             merged[l] = math.log(max(floor, 1e-9))
     t = max(float(temperature), 1e-3)
-    scaled = [merged[l] / t for l in labels]
-    m = max(scaled)
-    z = sum(math.exp(v - m) for v in scaled)
-    probs = [math.exp(v - m) / z for v in scaled]
+    logits = []
+    for i, l in enumerate(labels):
+        lp = merged[l]
+        if prior is not None:
+            lp -= math.log(max(float(prior[i]), 1e-6))
+        logits.append(lp / t)
+    m = max(logits)
+    z = sum(math.exp(v - m) for v in logits)
+    probs = [math.exp(v - m) / z for v in logits]
     return probs, {"coverage": round(coverage, 4), "listed_mass": round(min(listed, 1.0), 4),
                    "missing": missing}
+
+
+def variant_orders(n, variants):
+    """Option orders shown to the model: the caller's order, then its reverse when variants == 2."""
+    orders = [list(range(n))]
+    if variants >= 2 and n > 1:
+        orders.append(list(range(n - 1, -1, -1)))
+    return orders
+
+
+def to_original_order(probs_prompt, order):
+    """probs_prompt[j] belongs to the option shown at position j, which is option order[j]."""
+    out = [0.0] * len(order)
+    for j, i in enumerate(order):
+        out[i] = probs_prompt[j]
+    return out
+
+
+def average(dists):
+    n = len(dists[0])
+    return [sum(d[i] for d in dists) / len(dists) for i in range(n)]
 
 
 def choice_confidence(probs):
@@ -449,19 +509,103 @@ def score_confidence(probs):
     return min(1.0, max(0.0, 1.0 - distance / baseline)) if baseline else 1.0
 
 
+# ----------------------------------------------------------------------------- calibration
+
+
+class Calibration:
+    """Temperatures and label priors written by calibrate.py; reloaded when the file changes.
+
+    File shape: {"temperature": {"default": 1.8, "choice": 1.7, "noul": 2.2, "score": 1.5},
+                 "label_prior": {"choice": {"3": [0.4, 0.33, 0.27], "4": [...]}}, ...}
+    """
+
+    def __init__(self, path):
+        self.path = os.path.expanduser(path) if path else None
+        self.data = None
+        self.error = None
+        self._mtime = None
+        self._lock = threading.Lock()
+        self.reload()
+
+    def reload(self):
+        if not self.path:
+            return
+        try:
+            mtime = os.path.getmtime(self.path)
+        except OSError:
+            with self._lock:
+                self.data, self._mtime, self.error = None, None, None
+            return
+        with self._lock:
+            if mtime == self._mtime:
+                return
+            try:
+                with open(self.path, encoding="utf-8") as f:
+                    data = json.load(f)
+                if not isinstance(data, dict):
+                    raise ValueError("the calibration file must hold a JSON object")
+                self.data, self.error = data, None
+            except (OSError, ValueError) as e:
+                self.data, self.error = None, f"{type(e).__name__}: {e}"
+            self._mtime = mtime
+
+    def temperature(self, qtype):
+        self.reload()
+        temps = (self.data or {}).get("temperature") or {}
+        for key in (qtype, "default"):
+            v = temps.get(key)
+            if isinstance(v, (int, float)) and v > 0:
+                return float(v)
+        return 1.0
+
+    def prior(self, qtype, n):
+        self.reload()
+        priors = ((self.data or {}).get("label_prior") or {}).get(qtype) or {}
+        v = priors.get(str(n))
+        if isinstance(v, list) and len(v) == n and all(isinstance(x, (int, float)) and x > 0 for x in v):
+            s = float(sum(v))
+            return [x / s for x in v]
+        return None
+
+    def summary(self):
+        self.reload()
+        info = {"path": self.path, "loaded": self.data is not None}
+        if self.error:
+            info["error"] = self.error
+        if self.data:
+            info["generated_at"] = self.data.get("generated_at")
+            info["model"] = self.data.get("model")
+            info["temperature"] = self.data.get("temperature")
+            info["label_prior_option_counts"] = {
+                t: sorted(int(k) for k in v) for t, v in (self.data.get("label_prior") or {}).items()
+                if isinstance(v, dict)}
+        return info
+
+
 # ----------------------------------------------------------------------------- decider
 
 
 class Decider:
-    def __init__(self, backend, temperature=1.0, decimals=4, parallel=4, log=None):
+    def __init__(self, backend, temperature=None, decimals=4, parallel=4, variants=2, debias=True,
+                 calibration=None, decision_log=None, log=None):
         self.backend = backend
-        self.temperature = float(temperature)
+        self.temperature_override = None if temperature in (None, "") else float(temperature)
         self.decimals = int(decimals)
+        self.variants = 2 if int(variants) >= 2 else 1
+        self.debias = bool(debias)
+        self.calibration = calibration or Calibration(None)
+        self.decision_log = os.path.expanduser(decision_log) if decision_log else None
+        self._log_lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=max(1, int(parallel)))
         self.log = log or (lambda msg: None)
 
     def _round(self, x):
         return round(x, self.decimals)
+
+    def temperature(self, qtype):
+        if self.temperature_override is not None:
+            return self.temperature_override
+        return self.calibration.temperature(qtype)
 
     def answer_request(self, body):
         if not isinstance(body, dict):
@@ -477,34 +621,65 @@ class Decider:
         if not isinstance(images, list):
             raise BadRequest("files/images must be an array of data URLs or base64 image files")
         images = [parse_image(u) for u in images]  # bad input is a 400 now, not a 502 mid-way
+        variants = body.get("variants", self.variants)
+        if variants not in (1, 2):
+            raise BadRequest("'variants' must be 1 or 2")
         state_text = as_text(body.get("state"))
         model = self.backend.resolve_model(body.get("model"))
         debug = bool(body.get("debug"))
 
-        def run(item):
-            qid, (qtype, instructions, options) = item
-            return qid, self.answer_question(qid, qtype, instructions, options, state_text,
-                                             images, model, debug)
+        plan = []  # one backend call per (question, option order)
+        for qid, (qtype, instructions, options) in parsed.items():
+            orders = variant_orders(len(options), variants if qtype == "choice" else 1)
+            plan += [(qid, vi, order) for vi, order in enumerate(orders)]
 
+        def run(job):
+            qid, vi, order = job
+            qtype, instructions, options = parsed[qid]
+            prompt = build_prompt(qtype, instructions, [options[i] for i in order], state_text,
+                                  len(images))
+            return qid, vi, order, self.backend.first_token(prompt, model, images)
+
+        runs = {}
+        for qid, vi, order, r in self.pool.map(run, plan):
+            runs.setdefault(qid, []).append((vi, order, r))
         answers, input_tokens = {}, 0
-        for qid, (answer, meta) in self.pool.map(run, parsed.items()):
+        for qid, (qtype, instructions, options) in parsed.items():
+            answer, meta = self.combine(qid, qtype, options, sorted(runs[qid], key=lambda x: x[0]),
+                                        model, debug)
             answers[qid] = answer
             input_tokens += meta["prompt_tokens"]
-        return {"model": model, "answers": answers,
-                "usage": {"input_tokens": input_tokens, "output_tokens": 0}}
+        response = {"model": model, "answers": answers,
+                    "usage": {"input_tokens": input_tokens, "output_tokens": 0}}
+        if self.decision_log:
+            response["id"] = uuid.uuid4().hex
+            self._append_log({"type": "decision", "id": response["id"], "ts": _now(), "model": model,
+                              "state": body.get("state"), "images": len(images),
+                              "questions": questions, "answers": answers})
+        return response
 
-    def answer_question(self, qid, qtype, instructions, options, state_text, images, model,
-                        debug=False):
-        prompt = build_prompt(qtype, instructions, options, state_text, len(images))
-        r = self.backend.first_token(prompt, model, images)
+    def combine(self, qid, qtype, options, runs, model, debug=False):
+        """Merge the first-token distributions of one question's variants into its answer."""
         n = len(options)
-        if qtype == "choice":
-            labels, match = list(CHOICE_LABELS[:n]), choice_matcher(n)
-        elif qtype == "score":
-            labels, match = list(SCORE_LABELS[:n]), score_matcher(n)
-        else:
-            labels, match = list(NOUL_LABELS), noul_matcher
-        probs, meta = label_distribution(r["candidates"], labels, match, self.temperature)
+        labels, match = labels_for(qtype, n)
+        temperature = self.temperature(qtype)
+        prior = self.calibration.prior("choice", n) if (self.debias and qtype == "choice") else None
+        dists, details, tokens, seconds, tps, coverage = [], [], 0, 0.0, [], []
+        for vi, order, r in runs:
+            probs_prompt, meta = label_distribution(r["candidates"], labels, match, temperature, prior)
+            probs = to_original_order(probs_prompt, order)
+            dists.append(probs)
+            tokens += r["prompt_tokens"]
+            seconds += r["seconds"]
+            coverage.append(meta["coverage"])
+            if r["prefill_tps"]:
+                tps.append(r["prefill_tps"])
+            details.append({"order": order, "probabilities": [round(p, 5) for p in probs],
+                            "coverage": meta["coverage"], "listed_mass": meta["listed_mass"],
+                            "missing_labels": meta["missing"], "prompt_tokens": r["prompt_tokens"],
+                            "seconds": r["seconds"], "prefill_tps": r["prefill_tps"],
+                            "top_tokens": [[t, round(math.exp(lp), 5)] for t, lp in r["candidates"]]})
+        probs = average(dists)
         names = [name for name, _ in options]
 
         if qtype == "choice":
@@ -521,17 +696,45 @@ class Decider:
         else:
             answer = {"type": "noul", "noul": self._round(probs[0])}
 
+        mean_cov = sum(coverage) / len(coverage)
         if debug:
             answer["debug"] = {
-                "model": model, "prompt_tokens": r["prompt_tokens"], "seconds": r["seconds"],
-                "prefill_tps": r["prefill_tps"], "coverage": meta["coverage"],
-                "listed_mass": meta["listed_mass"], "missing_labels": meta["missing"],
-                "labels": dict(zip(labels, names)),
-                "top_tokens": [[t, round(math.exp(lp), 5)] for t, lp in r["candidates"]],
+                "model": model, "temperature": temperature, "prior": prior, "variants": details,
+                "prompt_tokens": tokens, "seconds": round(seconds, 3),
+                "prefill_tps": round(sum(tps) / len(tps), 1) if tps else None,
+                "coverage": round(mean_cov, 4), "labels": dict(zip(labels, names)),
             }
-        self.log(f"{qid} {qtype} n={n} coverage={meta['coverage']:.2f} "
-                 f"in={r['prompt_tokens']}tok {r['seconds']}s {model}")
-        return answer, {"prompt_tokens": r["prompt_tokens"]}
+        self.log(f"{qid} {qtype} n={n} variants={len(runs)} coverage={mean_cov:.2f} "
+                 f"T={temperature:g}{' debiased' if prior else ''} in={tokens}tok {seconds:.3f}s {model}")
+        return answer, {"prompt_tokens": tokens}
+
+    # -- decision log and feedback
+
+    def record_feedback(self, body):
+        if not self.decision_log:
+            raise NotSupported("the decision log is off: start the server with JEV_DECISION_LOG "
+                               "to accept feedback")
+        if not isinstance(body, dict):
+            raise BadRequest("the request body must be a JSON object")
+        rid, labels = body.get("id"), body.get("labels")
+        if not isinstance(rid, str) or not rid:
+            raise BadRequest("'id' must be the id returned with a logged decision")
+        if not isinstance(labels, dict) or not labels:
+            raise BadRequest("'labels' must map question ids to the correct answer: an option "
+                             "name, true/false, or a level index")
+        rec = {"type": "feedback", "id": rid, "ts": _now(), "labels": labels}
+        if body.get("note"):
+            rec["note"] = as_text(body["note"])
+        self._append_log(rec)
+        return {"ok": True, "id": rid, "labels": labels}
+
+    def _append_log(self, rec):
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(self.decision_log)), exist_ok=True)
+            with self._log_lock, open(self.decision_log, "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        except OSError as e:
+            self.log(f"decision log write failed: {e}")
 
 
 # ----------------------------------------------------------------------------- http
@@ -567,10 +770,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0].rstrip("/") or "/"
-        backend = self.decider.backend
+        decider = self.decider
+        backend = decider.backend
         if path in ("/", "/health"):
             info = {"status": "ok", "service": "gemma-jev", "version": VERSION,
-                    "backend": backend.url}
+                    "backend": backend.url, "variants": decider.variants, "debias": decider.debias,
+                    "temperature_override": decider.temperature_override,
+                    "calibration": decider.calibration.summary(),
+                    "decision_log": decider.decision_log}
             try:
                 info["backend_kind"] = backend.kind()
                 info["model"] = backend.default_model()
@@ -594,7 +801,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?", 1)[0].rstrip("/")
-        if path not in ("/v1/systemone", "/systemone"):
+        if path in ("/v1/systemone", "/systemone"):
+            handler = self.decider.answer_request
+        elif path in ("/v1/feedback", "/feedback"):
+            handler = self.decider.record_feedback
+        else:
             return self._error(404, "not_found", f"no route for POST {path}; use /v1/systemone")
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -602,7 +813,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._error(400, "invalid_request_error", "the body is not valid JSON")
         try:
-            self._send(200, self.decider.answer_request(body))
+            self._send(200, handler(body))
         except BadRequest as e:
             self._error(400, "invalid_request_error", str(e))
         except NotSupported as e:
@@ -625,7 +836,16 @@ def main(argv=None):
     ap.add_argument("--backend", default=env("JEV_BACKEND_URL", "http://127.0.0.1:11434"),
                     help="Ollama or OpenAI-compatible server")
     ap.add_argument("--model", default=env("JEV_MODEL"), help="default: first installed gemma4*")
-    ap.add_argument("--temperature", type=float, default=float(env("JEV_TEMPERATURE", "1.0")))
+    ap.add_argument("--variants", type=int, choices=[1, 2], default=int(env("JEV_VARIANTS") or 2),
+                    help="2 = also ask choice questions with the options reversed and average")
+    ap.add_argument("--debias", default=env("JEV_DEBIAS") or "1",
+                    help='"1" divides choice probabilities by the calibrated label prior, "0" does not')
+    ap.add_argument("--calibration", default=env("JEV_CALIBRATION") or DEFAULT_CALIBRATION,
+                    help="calibration file written by calibrate.py")
+    ap.add_argument("--temperature", default=env("JEV_TEMPERATURE"),
+                    help="overrides the calibration file for every question type (default: use the file)")
+    ap.add_argument("--decision-log", default=env("JEV_DECISION_LOG"),
+                    help="JSONL file that records every decision; enables POST /v1/feedback")
     ap.add_argument("--top-logprobs", type=int, default=int(env("JEV_TOP_LOGPROBS", "20")))
     ap.add_argument("--max-ctx", type=int, default=int(env("JEV_MAX_CTX", "65536")))
     ap.add_argument("--timeout", type=float, default=float(env("JEV_TIMEOUT", "300")))
@@ -642,8 +862,16 @@ def main(argv=None):
     backend = Backend(args.backend, model=args.model, api_key=env("JEV_API_KEY"),
                       timeout=args.timeout, top_logprobs=args.top_logprobs,
                       max_ctx=args.max_ctx, think=args.think)
+    calibration = Calibration(args.calibration)
     decider = Decider(backend, temperature=args.temperature, decimals=args.decimals,
-                      parallel=args.parallel, log=log)
+                      parallel=args.parallel, variants=args.variants,
+                      debias=str(args.debias).lower() not in ("0", "false", "no", "off"),
+                      calibration=calibration, decision_log=args.decision_log, log=log)
+    cal = calibration.summary()
+    log(f"calibration {cal['path']}: {'loaded' if cal['loaded'] else 'none (temperature 1.0, no prior)'}"
+        + (f" ({cal['error']})" if cal.get('error') else ""))
+    log(f"variants={decider.variants} debias={decider.debias} "
+        f"temperature_override={decider.temperature_override} decision_log={decider.decision_log}")
     try:
         log(f"backend {backend.url} ({backend.kind()}), model {backend.default_model()}")
     except BackendError as e:

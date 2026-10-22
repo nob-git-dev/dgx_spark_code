@@ -6,6 +6,7 @@ import json
 import math
 import os
 import sys
+import tempfile
 import threading
 import unittest
 import urllib.error
@@ -20,7 +21,8 @@ OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def default_script(payload):
-    """First-token candidates chosen from what the prompt asks for."""
+    """First-token candidates chosen from what the prompt asks for (independent of the content,
+    so a reversed option list gets the same label distribution: a pure position bias)."""
     user = payload["messages"][-1]["content"]
     if isinstance(user, list):  # OpenAI content parts
         user = " ".join(p.get("text", "") for p in user)
@@ -97,12 +99,17 @@ class FakeBackend:
         self.httpd.server_close()
 
 
-def start_jev(backend_url, **kw):
+def start_jev(backend_url, decider_kw=None, **kw):
     backend = jev.Backend(backend_url, timeout=10, **kw)
-    decider = jev.Decider(backend, parallel=2)
+    decider = jev.Decider(backend, parallel=2, **(decider_kw or {}))
     httpd = jev.make_server("127.0.0.1", 0, decider)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f"http://127.0.0.1:{httpd.server_address[1]}"
+
+
+def stop(httpd):
+    httpd.shutdown()
+    httpd.server_close()
 
 
 def call(url, path, body=None):
@@ -121,6 +128,8 @@ ROUTE = {"type": "choice", "instructions": "Which team should handle this?",
 URGENCY = {"type": "score", "instructions": "How urgent is this?",
            "criteria": ["can wait", "this week", "today", "right now"]}
 ANGRY = {"type": "noul", "instructions": "Is the customer angry?"}
+# The fake's label distribution renormalised over A/B/C: A = 0.8/0.93, B = 0.1/0.93, C = 0.03/0.93
+PA, PB, PC = 0.8 / 0.93, 0.1 / 0.93, 0.03 / 0.93
 
 
 class ServerTests(unittest.TestCase):
@@ -131,8 +140,7 @@ class ServerTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.httpd.shutdown()
-        cls.httpd.server_close()
+        stop(cls.httpd)
         cls.fake.close()
 
     def setUp(self):
@@ -143,8 +151,8 @@ class ServerTests(unittest.TestCase):
     def ask(self, body):
         return call(self.url, "/v1/systemone", body)
 
-    def test_choice_merges_token_variants_and_normalises(self):
-        status, r = self.ask({"state": STATE, "questions": {"route": ROUTE}})
+    def test_choice_single_order_merges_token_variants_and_normalises(self):
+        status, r = self.ask({"state": STATE, "questions": {"route": ROUTE}, "variants": 1})
         self.assertEqual(status, 200)
         a = r["answers"]["route"]
         # A = 0.6 + 0.2 (" a" is the same label), B = 0.1, C = 0.03, renormalised over the labels
@@ -152,25 +160,55 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(a["choice"], "billing")
         self.assertEqual(a["probabilities"], {"billing": 0.8602, "shipping": 0.1075, "technical": 0.0323})
         self.assertAlmostEqual(sum(a["probabilities"].values()), 1.0, places=3)
-        self.assertEqual(a["confidence"], round((0.8 / 0.93 - 1 / 3) / (1 - 1 / 3), 4))
+        self.assertEqual(a["confidence"], round((PA - 1 / 3) / (1 - 1 / 3), 4))
         self.assertEqual(r["usage"], {"input_tokens": 123, "output_tokens": 0})
         self.assertEqual(r["model"], "gemma4:26b")
         self.assertNotIn("debug", a)
+        self.assertNotIn("id", r)  # no decision log -> no id
+        self.assertEqual(len(self.fake.requests), 1)
+
+    def test_choice_default_averages_forward_and_reversed_order(self):
+        status, r = self.ask({"state": STATE, "questions": {"route": ROUTE}, "debug": True})
+        self.assertEqual(status, 200)
+        a = r["answers"]["route"]
+        # The fake prefers the first label whatever the content. Reversed, "A" is technical, so the
+        # average gives billing and technical the same mass: pure position bias cancels out.
+        self.assertEqual(a["probabilities"]["billing"], round((PA + PC) / 2, 4))
+        self.assertEqual(a["probabilities"]["technical"], round((PA + PC) / 2, 4))
+        self.assertEqual(a["probabilities"]["shipping"], round(PB, 4))
+        self.assertEqual(r["usage"]["input_tokens"], 2 * 123)
+        self.assertEqual(len(self.fake.requests), 2)
+        prompts = [p["messages"][1]["content"] for p in self.fake.requests]
+        self.assertTrue(any("A: billing\nB: shipping\nC: technical" in p for p in prompts))
+        self.assertTrue(any("A: technical\nB: shipping\nC: billing" in p for p in prompts))
+        d = a["debug"]
+        self.assertEqual([v["order"] for v in d["variants"]], [[0, 1, 2], [2, 1, 0]])
+        self.assertEqual(d["variants"][0]["probabilities"], [round(PA, 5), round(PB, 5), round(PC, 5)])
+        self.assertEqual(d["variants"][1]["probabilities"], [round(PC, 5), round(PB, 5), round(PA, 5)])
+        self.assertEqual(d["temperature"], 1.0)
+        self.assertIsNone(d["prior"])
+        self.assertEqual(d["prompt_tokens"], 246)
+        self.assertEqual(d["prefill_tps"], 1230.0)
+        self.assertEqual(d["coverage"], 0.93)
+        self.assertEqual(d["labels"], {"A": "billing", "B": "shipping", "C": "technical"})
+        self.assertIn("top_tokens", d["variants"][0])
+
+    def test_variants_must_be_1_or_2(self):
+        status, r = self.ask({"state": STATE, "questions": {"route": ROUTE}, "variants": 3})
+        self.assertEqual(status, 400)
+        self.assertIn("variants", r["error"]["message"])
 
     def test_choice_options_missing_from_top_k_get_a_floor(self):
         q = dict(ROUTE, criteria={"a": None, "b": None, "c": None, "d": None, "e": None})
-        status, r = self.ask({"state": STATE, "questions": {"q": q}, "debug": True})
+        status, r = self.ask({"state": STATE, "questions": {"q": q}, "debug": True, "variants": 1})
         self.assertEqual(status, 200)
         a = r["answers"]["q"]
         # listed mass 0.98 -> residual 0.02 shared by d and e (0.01 each, below the 0.03 minimum)
         total = 0.8 + 0.1 + 0.03 + 0.01 + 0.01
         self.assertEqual(a["probabilities"]["d"], round(0.01 / total, 4))
         self.assertEqual(a["probabilities"]["a"], round(0.8 / total, 4))
-        self.assertEqual(a["debug"]["missing_labels"], ["D", "E"])
+        self.assertEqual(a["debug"]["variants"][0]["missing_labels"], ["D", "E"])
         self.assertEqual(a["debug"]["labels"]["A"], "a")
-        self.assertEqual(a["debug"]["coverage"], 0.93)
-        self.assertEqual(a["debug"]["prompt_tokens"], 123)
-        self.assertEqual(a["debug"]["prefill_tps"], 1230.0)
 
     def test_score_matches_the_systemone_reference_example(self):
         status, r = self.ask({"state": STATE, "questions": {"urgency": URGENCY}})
@@ -181,6 +219,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(a["probabilities"], {"0": 0.0023, "1": 0.116, "2": 0.6753, "3": 0.2064})
         self.assertEqual(a["score"], 2.0858)
         self.assertEqual(a["confidence"], 0.673)
+        self.assertEqual(len(self.fake.requests), 1)  # score and noul are never reversed
 
     def test_noul(self):
         status, r = self.ask({"state": STATE, "questions": {"angry": ANGRY}})
@@ -192,11 +231,11 @@ class ServerTests(unittest.TestCase):
         status, r = self.ask({"state": STATE, "questions": {"route": ROUTE, "angry": ANGRY, "urgency": URGENCY}})
         self.assertEqual(status, 200)
         self.assertEqual(list(r["answers"]), ["route", "angry", "urgency"])
-        self.assertEqual(r["usage"]["input_tokens"], 3 * 123)
-        self.assertEqual(len(self.fake.requests), 3)
+        self.assertEqual(r["usage"]["input_tokens"], 4 * 123)  # choice twice, noul once, score once
+        self.assertEqual(len(self.fake.requests), 4)
 
     def test_backend_payload(self):
-        self.ask({"state": {"ticket": 42, "text": "hello"}, "questions": {"route": ROUTE}})
+        self.ask({"state": {"ticket": 42, "text": "hello"}, "questions": {"route": ROUTE}, "variants": 1})
         p = self.fake.requests[-1]
         self.assertEqual(p["model"], "gemma4:26b")
         self.assertIs(p["stream"], False)
@@ -216,16 +255,14 @@ class ServerTests(unittest.TestCase):
 
     def test_think_flag_is_dropped_when_the_model_rejects_it(self):
         self.fake.reject_think = True
-        status, _ = self.ask({"state": STATE, "questions": {"route": ROUTE}})
+        status, _ = self.ask({"state": STATE, "questions": {"angry": ANGRY}})
         self.assertEqual(status, 200)
         self.assertEqual(len(self.fake.requests), 2)  # rejected once, retried without think
         self.assertNotIn("think", self.fake.requests[-1])
-        self.ask({"state": STATE, "questions": {"route": ROUTE}})
+        self.ask({"state": STATE, "questions": {"angry": ANGRY}})
         self.assertEqual(len(self.fake.requests), 3)  # remembered: no second rejection
         self.assertNotIn("think", self.fake.requests[-1])
-        self.fake.reject_think = False
-        jev_backend = self.httpd.RequestHandlerClass.decider.backend
-        jev_backend._no_think.clear()
+        self.httpd.RequestHandlerClass.decider.backend._no_think.clear()
 
     def test_no_label_token_is_a_502(self):
         self.fake.script = lambda payload: [("Hello", ln(0.9)), ("Hi", ln(0.1))]
@@ -281,11 +318,11 @@ class ServerTests(unittest.TestCase):
 
     def test_list_criteria_and_descriptions(self):
         q = {"type": "choice", "instructions": "x", "criteria": ["billing", "shipping"]}
-        status, r = self.ask({"state": STATE, "questions": {"q": q}})
+        status, r = self.ask({"state": STATE, "questions": {"q": q}, "variants": 1})
         self.assertEqual(status, 200)
         self.assertEqual(list(r["answers"]["q"]["probabilities"]), ["billing", "shipping"])
         q = {"type": "choice", "instructions": "x", "criteria": {"billing": "Payments and refunds", "shipping": None}}
-        self.ask({"state": STATE, "questions": {"q": q}})
+        self.ask({"state": STATE, "questions": {"q": q}, "variants": 1})
         self.assertIn("A: billing — Payments and refunds\nB: shipping", self.fake.requests[-1]["messages"][1]["content"])
         q = {"type": "noul", "instructions": "x", "criteria": {"true": "the customer is upset", "false": "calm"}}
         self.ask({"state": STATE, "questions": {"q": q}})
@@ -303,6 +340,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(r["model"], "gemma4:26b")
         self.assertEqual(r["backend_kind"], "ollama")
+        self.assertEqual(r["variants"], 2)
+        self.assertIs(r["debias"], True)
+        self.assertEqual(r["calibration"], {"path": None, "loaded": False})
+        self.assertIsNone(r["decision_log"])
         status, r = call(self.url, "/v1/models")
         self.assertEqual(status, 200)
         self.assertIn("decisions", r["data"][0]["architecture"]["output_modalities"])
@@ -310,6 +351,146 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 404)
         status, r = call(self.url, "/v1/chat/completions", {"x": 1})
         self.assertEqual(status, 404)
+
+    def test_feedback_needs_the_decision_log(self):
+        status, r = call(self.url, "/v1/feedback", {"id": "abc", "labels": {"route": "billing"}})
+        self.assertEqual(status, 501)
+        self.assertIn("JEV_DECISION_LOG", r["error"]["message"])
+
+
+class CalibrationTests(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeBackend()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.tmp.name, "calibration.json")
+
+    def tearDown(self):
+        self.fake.close()
+        self.tmp.cleanup()
+
+    def write(self, data, mtime=None):
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        if mtime is not None:
+            os.utime(self.path, (mtime, mtime))
+
+    def test_label_prior_is_divided_out(self):
+        self.write({"label_prior": {"choice": {"3": [0.5, 0.3, 0.2]}}})
+        httpd, url = start_jev(self.fake.url, {"calibration": jev.Calibration(self.path)})
+        try:
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE},
+                                                    "variants": 1, "debug": True})
+            self.assertEqual(status, 200)
+            a = r["answers"]["route"]
+            w = [0.8 / 0.5, 0.1 / 0.3, 0.03 / 0.2]
+            z = sum(w)
+            self.assertEqual(a["probabilities"], {"billing": round(w[0] / z, 4), "shipping": round(w[1] / z, 4),
+                                                  "technical": round(w[2] / z, 4)})
+            self.assertEqual(a["debug"]["prior"], [0.5, 0.3, 0.2])
+            # a prior for another option count, or for a disabled debias, is not applied
+            q = dict(ROUTE, criteria={"a": None, "b": None})
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"q": q}, "variants": 1, "debug": True})
+            self.assertIsNone(r["answers"]["q"]["debug"]["prior"])
+        finally:
+            stop(httpd)
+        httpd, url = start_jev(self.fake.url, {"calibration": jev.Calibration(self.path), "debias": False})
+        try:
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE}, "variants": 1, "debug": True})
+            self.assertIsNone(r["answers"]["route"]["debug"]["prior"])
+            self.assertEqual(r["answers"]["route"]["probabilities"]["billing"], 0.8602)
+        finally:
+            stop(httpd)
+
+    def test_temperatures_per_type_override_and_reload(self):
+        self.write({"temperature": {"default": 2.0, "noul": 1.0}}, mtime=1_000_000)
+        httpd, url = start_jev(self.fake.url, {"calibration": jev.Calibration(self.path)})
+        try:
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE, "angry": ANGRY},
+                                                    "variants": 1, "debug": True})
+            self.assertEqual(status, 200)
+            self.assertEqual(r["answers"]["route"]["debug"]["temperature"], 2.0)  # falls back to default
+            self.assertEqual(r["answers"]["angry"]["debug"]["temperature"], 1.0)  # its own value
+            z = sum(math.sqrt(x) for x in (0.8, 0.1, 0.03))
+            self.assertEqual(r["answers"]["route"]["probabilities"]["billing"], round(math.sqrt(0.8) / z, 4))
+            status, h = call(url, "/health")
+            self.assertTrue(h["calibration"]["loaded"])
+            self.assertEqual(h["calibration"]["temperature"], {"default": 2.0, "noul": 1.0})
+            # the file changes (newer mtime): picked up on the next request without a restart
+            self.write({"temperature": {"default": 1.0}}, mtime=1_000_010)
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE}, "variants": 1, "debug": True})
+            self.assertEqual(r["answers"]["route"]["debug"]["temperature"], 1.0)
+            self.assertEqual(r["answers"]["route"]["probabilities"]["billing"], 0.8602)
+        finally:
+            stop(httpd)
+        # an explicit temperature wins over the file for every type
+        self.write({"temperature": {"default": 2.0, "noul": 3.0}}, mtime=1_000_020)
+        httpd, url = start_jev(self.fake.url, {"calibration": jev.Calibration(self.path), "temperature": "1.0"})
+        try:
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE, "angry": ANGRY},
+                                                    "variants": 1, "debug": True})
+            self.assertEqual(r["answers"]["route"]["debug"]["temperature"], 1.0)
+            self.assertEqual(r["answers"]["angry"]["debug"]["temperature"], 1.0)
+            status, h = call(url, "/health")
+            self.assertEqual(h["temperature_override"], 1.0)
+        finally:
+            stop(httpd)
+
+    def test_broken_or_missing_file_means_uncalibrated(self):
+        cal = jev.Calibration(self.path)  # missing
+        self.assertEqual(cal.temperature("choice"), 1.0)
+        self.assertIsNone(cal.prior("choice", 3))
+        with open(self.path, "w") as f:
+            f.write("{not json")
+        self.assertEqual(cal.temperature("choice"), 1.0)
+        self.assertIn("error", cal.summary())
+        self.assertFalse(cal.summary()["loaded"])
+
+
+class DecisionLogTests(unittest.TestCase):
+    def test_decisions_are_logged_and_feedback_is_attached(self):
+        fake = FakeBackend()
+        tmp = tempfile.TemporaryDirectory()
+        log_path = os.path.join(tmp.name, "logs", "decisions.jsonl")
+        httpd, url = start_jev(fake.url, {"decision_log": log_path})
+        try:
+            status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE, "angry": ANGRY}})
+            self.assertEqual(status, 200)
+            self.assertEqual(len(r["id"]), 32)
+            status, f = call(url, "/v1/feedback", {"id": r["id"], "labels": {"route": "shipping", "angry": False}, "note": "checked"})
+            self.assertEqual(status, 200)
+            self.assertEqual(f, {"ok": True, "id": r["id"], "labels": {"route": "shipping", "angry": False}})
+            status, f = call(url, "/v1/feedback", {"id": "", "labels": {"route": "x"}})
+            self.assertEqual(status, 400)
+            status, f = call(url, "/v1/feedback", {"id": r["id"], "labels": []})
+            self.assertEqual(status, 400)
+            status, h = call(url, "/health")
+            self.assertEqual(h["decision_log"], log_path)
+            with open(log_path, encoding="utf-8") as fh:
+                lines = [json.loads(l) for l in fh]
+            self.assertEqual([l["type"] for l in lines], ["decision", "feedback"])
+            self.assertEqual(lines[0]["id"], r["id"])
+            self.assertEqual(lines[0]["state"], STATE)
+            self.assertEqual(lines[0]["questions"]["route"], ROUTE)
+            self.assertEqual(lines[0]["answers"]["route"]["choice"], "billing")
+            self.assertEqual(lines[1]["labels"], {"route": "shipping", "angry": False})
+            self.assertEqual(lines[1]["note"], "checked")
+            # feedback_export joins the two into one training record
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            import io
+            import contextlib
+            import feedback_export
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                feedback_export.main([log_path])
+            rec = json.loads(out.getvalue().strip())
+            self.assertEqual(rec["state"], STATE)
+            self.assertEqual(rec["questions"]["route"]["label"], "shipping")
+            self.assertEqual(rec["questions"]["angry"]["label"], False)
+            self.assertEqual(rec["questions"]["route"]["criteria"], ROUTE["criteria"])
+        finally:
+            stop(httpd)
+            fake.close()
+            tmp.cleanup()
 
 
 class OpenAIBackendTests(unittest.TestCase):
@@ -322,17 +503,16 @@ class OpenAIBackendTests(unittest.TestCase):
             status, r = call(url, "/v1/systemone", {"state": STATE, "questions": {"route": ROUTE, "angry": ANGRY}})
             self.assertEqual(status, 200)
             self.assertEqual(r["model"], "gemma-4-26b-it")
-            self.assertEqual(r["answers"]["route"]["choice"], "billing")
+            self.assertEqual(r["answers"]["route"]["choice"], "billing")  # tie with technical, first wins
             self.assertEqual(r["answers"]["angry"]["noul"], round(0.65 / 0.95, 4))
-            self.assertEqual(r["usage"]["input_tokens"], 2 * 77)
+            self.assertEqual(r["usage"]["input_tokens"], 3 * 77)  # choice twice, noul once
             p = fake.requests[-1]
             self.assertEqual(p["max_tokens"], 1)
             self.assertIs(p["logprobs"], True)
             self.assertEqual(p["top_logprobs"], 20)
             self.assertNotIn("chat_template_kwargs", p)  # dropped after the 400
         finally:
-            httpd.shutdown()
-            httpd.server_close()
+            stop(httpd)
             fake.close()
 
     def test_unreachable_backend_is_a_502_and_health_503(self):
@@ -344,8 +524,7 @@ class OpenAIBackendTests(unittest.TestCase):
             status, r = call(url, "/health")
             self.assertEqual(status, 503)
         finally:
-            httpd.shutdown()
-            httpd.server_close()
+            stop(httpd)
 
 
 class MathTests(unittest.TestCase):
@@ -359,9 +538,9 @@ class MathTests(unittest.TestCase):
         self.assertEqual(jev.score_confidence([1 / 3, 1 / 3, 1 / 3]), 0.0)  # uniform: no confidence
         self.assertAlmostEqual(jev.score_confidence([0.0, 0.0, 0.0, 0.0, 1.0]), 1.0)
 
-    def test_label_distribution_temperature(self):
+    def test_label_distribution_temperature_and_prior(self):
         cands = [("A", ln(0.6)), ("B", ln(0.3)), ("C", ln(0.1))]
-        labels, match = ["A", "B", "C"], jev.choice_matcher(3)
+        labels, match = jev.labels_for("choice", 3)
         p1, meta = jev.label_distribution(cands, labels, match, 1.0)
         self.assertAlmostEqual(p1[0], 0.6, places=6)
         self.assertEqual(meta["missing"], [])
@@ -370,6 +549,22 @@ class MathTests(unittest.TestCase):
         self.assertGreater(p_sharp[0], p1[0])
         self.assertLess(p_flat[0], p1[0])
         self.assertAlmostEqual(sum(p_flat), 1.0, places=9)
+        # dividing by the distribution itself leaves a uniform distribution
+        p_u, _ = jev.label_distribution(cands, labels, match, 1.0, prior=[0.6, 0.3, 0.1])
+        for x in p_u:
+            self.assertAlmostEqual(x, 1 / 3, places=9)
+        # the prior is applied before the temperature
+        p_tp, _ = jev.label_distribution(cands, labels, match, 2.0, prior=[0.5, 0.25, 0.25])
+        w = [math.sqrt(0.6 / 0.5), math.sqrt(0.3 / 0.25), math.sqrt(0.1 / 0.25)]
+        self.assertAlmostEqual(p_tp[0], w[0] / sum(w), places=9)
+
+    def test_variant_helpers(self):
+        self.assertEqual(jev.variant_orders(3, 2), [[0, 1, 2], [2, 1, 0]])
+        self.assertEqual(jev.variant_orders(3, 1), [[0, 1, 2]])
+        self.assertEqual(jev.variant_orders(1, 2), [[0]])
+        self.assertEqual(jev.to_original_order([0.7, 0.2, 0.1], [2, 1, 0]), [0.1, 0.2, 0.7])
+        self.assertEqual(jev.to_original_order([0.5, 0.3, 0.2], [1, 2, 0]), [0.2, 0.5, 0.3])
+        self.assertEqual(jev.average([[1.0, 0.0], [0.0, 1.0]]), [0.5, 0.5])
 
     def test_token_matching(self):
         m = jev.choice_matcher(3)
